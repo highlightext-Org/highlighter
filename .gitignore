@@ -1,0 +1,41 @@
+# Python bytecode and runtime caches (including scripts/ and tests/)
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pytype/
+.hypothesis/
+
+# Virtual environments
+.venv/
+venv/
+env/
+.env/
+ENV/
+
+# Python build and packaging output
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Test and coverage output
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# macOS metadata
+.DS_Store
+
+# Keep local credentials and machine metadata out of Git.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.DS_Store
