@@ -38,7 +38,7 @@
     return [...terms.values()];
   }
 
-  function createMatcher(terms, options = {}) {
+  function createLiteralMatcher(terms, options = {}) {
     const trie = { next: new Map(), terms: [] };
     for (const term of terms) {
       if (options[term.kind] === false) continue;
@@ -67,18 +67,53 @@
             const following = end < text.length ? String.fromCodePoint(text.codePointAt(end)) : '';
             const first = Array.from(term.text)[0];
             const last = Array.from(term.text).pop();
-            if (options.wholeWords !== false &&
+            if ((term.wholeWords ?? options.wholeWords) !== false &&
                 ((word.test(first) || first === '@') && word.test(previous || '') ||
                  word.test(last) && word.test(following || ''))) continue;
             if ((term.caseSensitive || options.caseSensitive) && text.slice(start, end) !== term.text) continue;
             // Continuing down the trie makes the longest valid match win.
-            best = { start, end, term };
+            if (!best || (term.priority || 0) > (best.term.priority || 0) || ((term.priority || 0) === (best.term.priority || 0) && end >= best.end)) best = { start, end, term };
           }
         }
         if (best) { matches.push(best); start = best.end; }
         else start += String.fromCodePoint(text.codePointAt(start)).length;
       }
       return matches;
+    };
+  }
+  function createMatcher(terms, options = {}, progress = () => {}) {
+    const enabled = terms.filter(term => term.enabled !== false && options[term.kind] !== false);
+    const literals = createLiteralMatcher(enabled.filter(term => term.type !== 'regex'), options);
+    const patterns = enabled.filter(term => term.type === 'regex');
+    if (patterns.length > 200) throw new Error('Enable at most 200 regex rules per project.');
+    return (text, limit = 5000) => {
+      if (limit <= 0) return [];
+      const matches = literals(text, limit);
+      for (const term of patterns) {
+        progress(term.id);
+        let flags = term.flags || '';
+        if (term.caseSensitive || options.caseSensitive) flags = flags.replace('i', '');
+        else if (!flags.includes('i')) flags += 'i';
+        if (!flags.includes('g')) flags += 'g';
+        const regex = new RegExp(term.text, flags);
+        let item, count = 0;
+        while ((item = regex.exec(text)) && count < limit) {
+          if (!item[0].length) {
+            const char = text.codePointAt(regex.lastIndex);
+            regex.lastIndex += (regex.unicode || regex.unicodeSets) && char > 0xffff ? 2 : 1;
+            continue;
+          }
+          const start = item.index, end = start + item[0].length;
+          const previous = Array.from(text.slice(Math.max(0, start - 2), start)).pop() || '';
+          const following = end < text.length ? String.fromCodePoint(text.codePointAt(end)) : '';
+          if ((term.wholeWords ?? options.wholeWords) !== false && (word.test(String.fromCodePoint(item[0].codePointAt(0))) && word.test(previous) || word.test(Array.from(item[0]).pop()) && word.test(following))) continue;
+          matches.push({ start, end, term }); count++;
+        }
+      }
+      matches.sort((a, b) => a.start - b.start || (b.term.priority || 0) - (a.term.priority || 0) || b.end - a.end || (a.term.id || '').localeCompare(b.term.id || ''));
+      const result = []; let end = -1;
+      for (const item of matches) if (item.start >= end) { result.push(item); end = item.end; if (result.length >= limit) break; }
+      return result;
     };
   }
   const api = { extractTerms, createMatcher };

@@ -1,69 +1,247 @@
 # Highlightext
 
-A dependency-free Manifest V3 extension for Chrome and Edge. Type or paste text
-into the popup to highlight matches, or click **Highlight this page** to highlight
-the current website. Page highlights update as the page or editable text changes.
+A shared Manifest V3 browser extension for Chrome/Edge 116+ and Firefox desktop
+140+. Match literal keywords, handles, wallets, profile URLs, and regular
+expressions using the central definitions source:
+https://highlightext-org.github.io/words/master.json.
 
-## Install locally
+## Build and install
 
-1. Open `chrome://extensions` (or `edge://extensions`).
-2. Enable **Developer mode**.
-3. Choose **Load unpacked** and select this `highlighter` directory.
-4. Pin Highlightext, open its popup, and wait for the first word list download.
+Requires Node.js 18+. No npm install, API key, or runtime npm packages are required.
+Run from this directory:
 
-No build step, API key, or runtime npm packages are required. Reload the extension
-on the extensions page after changing its code; reload an already highlighted web
-page to replace its injected script.
+```sh
+npm run build
+```
 
-## Matching
+- Chrome/Edge: open `chrome://extensions` or `edge://extensions`, enable Developer
+  mode, choose **Load unpacked**, and select `dist/chrome/`.
+- Firefox: open `about:debugging#/runtime/this-firefox`, choose **Load Temporary
+  Add-on**, and select `dist/firefox/manifest.json`. Temporary installs disappear
+  on restart. Permanent distribution requires Mozilla signing.
 
-The source is https://highlightext-org.github.io/words/master.json. The extension
-extracts enabled keywords and their colors, explicit X handles (with and without
-`@`), case-sensitive wallets, and profile URLs from schema version 1. Display
-names and other arbitrary profile fields are not treated as keywords.
+Use `npm run build:chrome` or `npm run build:firefox` for one target. Edit the
+shared source, rebuild, and reload the extension. Reload highlighted pages after
+changing injected code. The source directory remains directly loadable in Chrome.
+Android is not a tested target.
 
-Choose categories, whole-word matching, or case-sensitive matching in the popup.
-Matches are literal, case-insensitive by default, and prefer the longest match
-when terms overlap. Wallets always require exact case. Settings apply immediately
-in the popup; click **Highlight this page** again to apply new settings to a page.
-The source's explicitly disabled keywords and profiles are excluded.
+`manifest.json` is the base Chrome manifest. `manifests/firefox.json` overrides
+background loading and browser metadata. Firefox uses an event page and direct
+Web Workers. Chrome uses a service worker and an offscreen document hosting the
+same matching worker. Firefox's stable add-on ID is
+`highlightext@highlightext.org`; keep it stable after the first signed release.
+Zip each build directory's contents with `manifest.json` at the archive root for
+store submission. Build outputs contain extension assets and license files only;
+building does not sign or publish anything.
 
-The parsed list is cached locally and refreshed when opening the popup if more
-than 24 hours old. The refresh button forces a download. If a refresh fails, the
-last successful list remains available. The first download requires internet.
+## Feature list
 
-## Page behavior and limits
+1. Download keyword **and regex** definitions from central `master.json`.
+2. Support literal keywords and JavaScript regex patterns.
+3. Explicit rule types, with auto detection for `pattern` fields and `/regex/flags`.
+4. Groups for issues, campaigns, locations, and categories.
+5. On-demand synchronization in the popup or rules manager.
+6. Optional daily checks using browser alarms, also checking stale definitions
+   when the UI opens. Disabled by default; browser scheduling may be delayed.
+7. Local offline cache retained after download or validation failures.
+8. Custom local rules for all projects and rules specific to a project.
+9. Individual rule enable/disable and overrides that survive synchronization.
+10. Case controls, Unicode-aware word boundaries, and JavaScript regex flags.
+11. Regex syntax validation before activation; invalid remote rules are skipped
+    with visible diagnostics, and invalid imports are rejected before saving.
+12. Highlight rendered posts, comments, timelines, public biographies, and other
+    ordinary page text after clicking **Highlight this page**. Watch live changes.
+13. Optional local records containing matched text, rule ID, category, platform,
+    source URL, timestamp, and project ID.
+14. Import and export definitions as JSON or CSV; export records as JSON or CSV.
+15. Separate rule sets, overrides, group selections, matching options, and recording
+    settings for each campaign or research project.
+16. Stream remote JSON and parse top-level array entries incrementally, discarding
+    unrelated datasets such as holdings rather than materializing the whole file.
+17. Deduplicate equivalent rules and resolve overlapping match ranges.
+18. Priority: project overrides > project rules > local rules > remote definitions.
+19. Display the last successful sync time, persistent download errors, and invalid
+    source-rule diagnostics.
+20. Isolate matching in a terminable worker, with regex deadlines and page limits.
 
-Page highlights use the browser's CSS Custom Highlight API without replacing text
-nodes, so links, selection, and editable content remain intact. Phrases can span
-inline elements in a paragraph. **Clear page highlights** stops live updates and
-removes only this extension's highlights. Each scan is capped at 5,000 matches.
+## Using projects and custom rules
 
-Highlighting is enabled per page by clicking the button. Navigation or a reload
-requires enabling it again. Browser settings, extension stores, PDFs, canvas,
-shadow roots, and embedded frames are not supported. Native website inputs and
-textareas cannot display CSS range highlights; use the extension's own text field
-or a website's contenteditable editor. Hidden HTML and password fields are skipped.
+Open the popup and choose **Manage rules**. Create or select a project, select its
+groups, and add or edit rules. Local rules apply to every project; project rules
+apply to the selected project. Editing a remote rule reuses its ID so it overrides
+the downloaded definition. Its override remains after future synchronization.
+Disabling a rule in the table creates a project override. Removing an override
+reveals the definition from the next lower source, if one exists.
+
+The popup's category switches, whole-word setting, and case setting belong to the
+selected project. Reapply **Highlight this page** to switch an existing page to a
+different project. Already enabled pages stay attached to their original project;
+their next live scan reads that project's current settings.
+
+Enable **Save page matches locally** per project to record evidence. Recording is
+off by default and applies only to pages, not pasted popup drafts. The latest
+2,000 records across projects are retained, subject to a 2 MiB size limit; older
+records are removed automatically. Repeated scans deduplicate the same project,
+URL, rule, matched text, block, and offset. Dynamic layout changes can create a
+new record for the same text at another position. Export records before retention
+limits remove them. Clearing page highlights does not delete records; the rules
+manager provides a separate project-specific clear action.
+
+## Definition schema
+
+Existing schema-version-1 `keywords`/`variants`, profile handles, case-sensitive
+wallets, profile URLs, and disabled profile settings remain supported. Legacy
+keyword `type: "positive"` or `"negative"` describes sentiment and stays literal.
+Disabled rules are retained in the manager so they can be enabled individually.
+
+The central file can also contain `rules`, `patterns`, and `groups`. Schema
+versions 1 and 2 are accepted, or omit `schema_version` for a definitions-only
+file. Example:
+
+```json
+{
+  "schema_version": 2,
+  "rules": [
+    {
+      "id": "campaign:school",
+      "type": "literal",
+      "text": "school closure",
+      "category": "Education",
+      "group": "Local campaign",
+      "enabled": true,
+      "wholeWords": true,
+      "color": "#fde047"
+    }
+  ],
+  "patterns": [
+    {
+      "id": "campaign:reference",
+      "pattern": "CASE-\\d{4}",
+      "flags": "i",
+      "category": "References",
+      "group": "Local campaign",
+      "wholeWords": false
+    }
+  ],
+  "groups": [
+    {
+      "id": "london",
+      "name": "London",
+      "category": "Location",
+      "rules": [{ "id": "london:borough", "text": "Camden" }]
+    }
+  ]
+}
+```
+
+Rule fields:
+
+| Field | Meaning |
+| --- | --- |
+| `id` | Stable ID used by overrides. Generated from matching content, group, kind, and category if omitted. Explicit stable IDs are recommended. |
+| `type`, `ruleType`, or `matchType` | `literal` or `regex`; `keyword` and `text` mean literal. |
+| `text` / `pattern` | Keyword or regex source. A `pattern` field implies regex unless the type explicitly says literal. |
+| `flags` | JavaScript flags such as `imsu`. Duplicate, unsupported, or incompatible flags are rejected. |
+| `enabled` | Defaults to true. |
+| `caseSensitive` | Defaults to false. True, or the project's case-sensitive option, removes the regex `i` flag. Otherwise matching adds `i`. Wallets are case sensitive. |
+| `wholeWords` | True/false overrides project boundaries. Null or omitted inherits the project setting, which defaults to true. |
+| `category`, `group` | Labels. `issue`, `campaign`, and `location` can supply group/category defaults. |
+| `kind` | Popup filter: `keyword` (default), `handle`, `wallet`, or `url`. |
+| `color` | Six-digit hex color; defaults to `#fde047`. |
+
+Without an explicit type, slash-delimited `/pattern/flags` is detected as regex.
+Other text, including punctuation such as `a+b`, stays literal. Explicit
+`type: "literal"` preserves slash-delimited text as a literal keyword. Bare
+strings in `patterns` are regex; bare strings in `keywords` or `rules` use auto
+detection. Groups accept `rules`, `keywords`, and `patterns` arrays.
+
+Equivalent active rules are deduplicated according to priority. Definitions in
+different groups remain visible so disabling one group can reveal another.
+At the same starting offset higher-priority rules win, then longer matches;
+otherwise the earliest non-overlapping match wins. Empty regex matches are skipped.
+A regex uses JavaScript semantics, not PCRE. `g` is always applied to find all
+matches; sticky `y` retains its JavaScript behavior. Boundaries are checked on the
+actual matched text rather than inserting regex `\b` into the user's expression.
+
+## Import and export
+
+The manager accepts JSON arrays of rule objects, or objects with the collections
+above. CSV has a header row with `text` or `pattern`; optional fields use the same
+names as the schema. The exported columns are:
+
+```csv
+id,type,text,flags,kind,category,group,color,enabled,caseSensitive,wholeWords
+```
+
+Quoted commas, quotes, newlines, BOMs, and boolean fields are supported. Imports
+merge by ID into local rules or the current project. The entire import must
+validate before saving. Exports flatten the current project's effective rules,
+including disabled rules and groups; they are portable definitions, not a backup
+of every project's source layers. Imports are limited to 8 MiB.
+
+## Performance and page limits
+
+- Remote downloads: 60 second timeout, 32 MiB maximum; preserve the previous
+  successful cache if a download fails or no valid rules can be extracted.
+- At most 200 active regex patterns per project; each regex execution has a 75 ms
+  worker deadline and the overall scan has a 2 second budget. Timeouts terminate
+  the worker and identify the slow rule or overall scan in the UI. Simplify or
+  disable the pattern to resume matching. A subsequent scan uses a fresh worker.
+- At most 5,000 displayed matches, 200,000 characters, 2,000 text blocks, and
+  20,000 examined text nodes per page scan. Individual blocks/text nodes are
+  limited to 20,000 characters. A page badge reports counts, errors, or truncation.
+- Page updates are coalesced to at most one new scan per second, with one scan in
+  flight per page and at most three matching workers across the extension.
+- Popup previews accept 20,000 characters and debounce typing by 250 ms.
+- At most 50 projects and 20,000 custom definitions per scope, subject to browser
+  local-storage quotas. Large rulesets may need smaller imports.
+
+CSS Custom Highlight ranges preserve text nodes, links, selection, and editable
+content. Phrases can span inline elements in the same block; regex cannot cross
+block boundaries or truncated chunks. Navigation/reload requires enabling again.
+Browser pages, extension stores, PDFs, canvas text, shadow roots, and embedded
+frames are unsupported. Native input/textarea range highlights are unsupported;
+use the popup preview or contenteditable page text. Hidden/aria-hidden elements,
+passwords, and input fields are excluded. Sites may impose additional extension
+restrictions. Only already loaded page text is scanned; the extension does not
+crawl profiles, load comments, or fetch private content.
 
 ## Privacy and permissions
 
-The extension requests `activeTab` and `scripting` to highlight a page only after
-your click, and `storage` for settings and the parsed word list. The only permanent
-host permission is for the published JSON URL. No page content or pasted text is
-uploaded. The popup draft is kept in browser session memory, not persistent local
-storage. There is no analytics or remote executable code.
+`activeTab` and `scripting` enable page highlighting after your click. `storage`
+keeps definitions, settings, and optional match records. `alarms` enables daily
+checks when selected. Chrome's `offscreen` permission hosts the worker; Firefox
+does not request that permission. The only permanent website permission is the
+published definitions host. If Firefox blocks its download, allow the word-list
+host in the extension's website permissions in `about:addons`.
+
+No page content, pasted text, custom rules, or match records are uploaded. There
+is no analytics or remote executable code. The word-list server receives normal
+download requests. Popup drafts use browser session storage, not persistent local
+storage. Definitions/configuration and enabled recording do persist locally until
+removed or the extension is uninstalled. The Firefox manifest declares no user
+data transmission; revisit that declaration if future features upload user data.
 
 ## Verify
 
-With Node.js 18 or later, run `npm test`. Tests cover literal matches, overlapping
-phrases, Unicode boundaries and offsets, exact-case wallets, categories, disabled
-terms, schema validation, and unsafe-looking input. JavaScript can also be checked
-with `node --check matcher.js` (and similarly for the other scripts).
+```sh
+npm test
+npm run build
+npx web-ext lint --source-dir dist/firefox --warnings-as-errors
+```
 
-For a browser smoke test, paste a listed keyword into the popup, toggle its
-category, then highlight a regular page containing that word. Check an inline
-phrase, edit a contenteditable field, and clear the page highlights. Test offline
-refresh after one successful download to confirm the cached list remains usable.
+Tests cover matching and Unicode offsets, rule types, schema compatibility,
+priority and disable overrides, groups, CSV/JSON round trips, streamed UTF-8,
+offline failures, record isolation/deduplication, browser build startup, and
+terminating catastrophic regex execution in a real worker thread.
+
+Browser smoke checklist for both builds: sync definitions, create a project,
+add a regex, preview it, import/export rules, enable optional recording, highlight
+an ordinary page with inline and editable content, mutate its text, and inspect
+records. Disable a group or individual rule, reapply highlighting, and clear the
+page. Test offline refresh after one successful download and verify the cache and
+last successful timestamp remain. Confirm a slow pattern stops without hanging
+the page and that disabling it allows matching again.
 
 ## Community tier — free open-source tools
 

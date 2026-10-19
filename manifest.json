@@ -1,10 +1,28 @@
 {
   "manifest_version": 3,
   "name": "Highlightext",
-  "version": "0.1.0",
-  "description": "Highlight matching keywords, handles, wallets, and profile URLs from the Highlightext word list.",
-  "permissions": ["storage", "activeTab", "scripting"],
-  "host_permissions": ["https://highlightext-org.github.io/words/master.json"],
-  "background": { "service_worker": "background.js" },
-  "action": { "default_title": "Highlightext", "default_popup": "popup.html" }
+  "version": "0.2.0",
+  "description": "Highlight keywords and regex patterns with project rules, offline definitions, and local match records.",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "alarms",
+    "offscreen"
+  ],
+  "host_permissions": [
+    "https://highlightext-org.github.io/words/master.json"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Highlightext",
+    "default_popup": "popup.html"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "minimum_chrome_version": "116"
 }
