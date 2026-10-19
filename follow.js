@@ -2,6 +2,14 @@
 const $ = id => document.getElementById(id);
 const projectId = new URLSearchParams(location.search).get('project') || 'default';
 let entries = [], running = false, stopRequested = false, profileTabId, profileURL, busy = false;
+const speedNames = ['slow', 'normal', 'fast'];
+let followSpeed = 'normal', savedSpeed = 'normal';
+function drawSpeed() {
+  const setting = HighlightextFollows.SPEEDS[followSpeed];
+  $('follow-speed').value = speedNames.indexOf(followSpeed);
+  $('follow-speed').setAttribute('aria-valuetext', setting.label);
+  $('speed-status').textContent = `${setting.label} · ${setting.pauseMs / 1000} seconds between accounts · ${setting.settleMs / 1000} seconds for profiles to settle.`;
+}
 const terminal = new Set(['followed', 'already-following', 'requested', 'reviewed', 'skipped']);
 async function request(type, extra = {}) {
   const result = await chrome.runtime.sendMessage({ type: `follow:${type}`, projectId, ...extra });
@@ -38,6 +46,13 @@ async function perform(task) {
   finally { busy = false; draw(); }
 }
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+async function pauseBetweenAccounts() {
+  // Read the live setting on every tick so changing speed also adjusts the current pause.
+  let elapsed = 0;
+  while (!stopRequested && elapsed < HighlightextFollows.SPEEDS[followSpeed].pauseMs) {
+    await delay(250); elapsed += 250;
+  }
+}
 function readRequirements() {
   return HighlightextFollows.requirements({ basedIn: $('based-in').value, connectedVia: $('connected-via').value });
 }
@@ -51,7 +66,7 @@ async function waitForProfile(id) {
   for (let attempt = 0; attempt < 60; attempt++) {
     if (stopRequested) throw new Error('Stopped before following.');
     const tab = await chrome.tabs.get(id);
-    if (tab.status === 'complete') { await delay(1500); return; }
+    if (tab.status === 'complete') { await delay(HighlightextFollows.SPEEDS[followSpeed].settleMs); return; }
     await delay(500);
   }
   throw new Error('Profile load timed out.');
@@ -94,7 +109,7 @@ async function runQueue() {
           await request('update', { key: current.key, ...check });
           current = null;
           // Keep the account details visible before moving to the next profile.
-          for (let n = 0; n < 30 && !stopRequested; n++) await delay(1000);
+          await pauseBetweenAccounts();
           continue;
         }
         if (stopRequested) throw new Error('Stopped before following.');
@@ -112,7 +127,7 @@ async function runQueue() {
       current = null;
       if (result.status === 'blocked') throw new Error(result.detail);
       // Keep the current profile visible during the pause.
-      for (let n = 0; n < 30 && !stopRequested; n++) await delay(1000);
+      await pauseBetweenAccounts();
     }
   } catch (error) {
     $('error').textContent = error.message;
@@ -128,6 +143,18 @@ $('import').addEventListener('click', () => perform(async () => {
   if (!result.errors.length) $('handles').value = '';
 }));
 $('clear').addEventListener('click', () => perform(() => request('clear')));
+$('follow-speed').addEventListener('input', () => {
+  followSpeed = speedNames[Number($('follow-speed').value)] || 'normal'; drawSpeed();
+});
+$('follow-speed').addEventListener('change', async () => {
+  $('follow-speed').disabled = true;
+  try {
+    const result = await request('speed', { speed: followSpeed });
+    savedSpeed = result.speed;
+  } catch (error) {
+    followSpeed = savedSpeed; drawSpeed(); $('error').textContent = error.message;
+  } finally { $('follow-speed').disabled = false; }
+});
 for (const id of ['based-in', 'connected-via']) $(id).addEventListener('change', () => perform(saveRequirements));
 $('us-preset').addEventListener('click', () => perform(async () => {
   $('based-in').value = 'United States';
@@ -148,6 +175,8 @@ $('stop').addEventListener('click', () => { stopRequested = true; draw(); $('sta
     if (!state.config?.projects[projectId]) throw new Error('This project no longer exists. Reopen from the extension.');
     $('project-name').textContent = state.config.projects[projectId].name;
     const result = await request('list');
+    followSpeed = savedSpeed = HighlightextFollows.speed(result.speed);
+    drawSpeed(); $('follow-speed').disabled = false;
     $('based-in').value = result.requirements?.basedIn || '';
     $('connected-via').value = result.requirements?.connectedVia || '';
   } catch (error) { $('error').textContent = error.message; }

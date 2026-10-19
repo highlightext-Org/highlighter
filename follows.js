@@ -53,6 +53,15 @@
     }
     return result;
   }
+  const SPEEDS = {
+    slow: { label: 'Slow', pauseMs: 60000, settleMs: 2500 },
+    normal: { label: 'Normal', pauseMs: 30000, settleMs: 1500 },
+    fast: { label: 'Fast', pauseMs: 10000, settleMs: 1000 }
+  };
+  function speed(value = 'normal') {
+    if (!Object.hasOwn(SPEEDS, value)) throw new Error('Choose Slow, Normal, or Fast.');
+    return value;
+  }
   function listSource(value) {
     try {
       const url = new URL(value);
@@ -85,7 +94,7 @@
     }
     return [...found.values()];
   }
-  const api = { PLATFORMS, profile, parse, requirements, listSource, collectHandles };
+  const api = { PLATFORMS, profile, parse, requirements, SPEEDS, speed, listSource, collectHandles };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.HighlightextFollows = api;
 })(globalThis);

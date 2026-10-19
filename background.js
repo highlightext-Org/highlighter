@@ -224,8 +224,16 @@ async function handleFollows(message) {
     let entries = Object.hasOwn(followQueues, message.projectId) ? followQueues[message.projectId] : [];
     const { followRequirements = {} } = await chrome.storage.local.get('followRequirements');
     const requirements = Object.hasOwn(followRequirements, message.projectId) ? followRequirements[message.projectId] : HighlightextFollows.requirements();
+    const { followSpeeds = {} } = await chrome.storage.local.get('followSpeeds');
+    const speed = Object.hasOwn(followSpeeds, message.projectId) ? followSpeeds[message.projectId] : 'normal';
     switch (message.type) {
-      case 'follow:list': return { entries, requirements };
+      case 'follow:list': return { entries, requirements, speed };
+      case 'follow:speed': {
+        const next = HighlightextFollows.speed(message.speed);
+        Object.defineProperty(followSpeeds, message.projectId, { value: next, enumerable: true, configurable: true, writable: true });
+        await chrome.storage.local.set({ followSpeeds });
+        return { entries, speed: next };
+      }
       case 'follow:requirements': {
         const next = HighlightextFollows.requirements(message.requirements);
         Object.defineProperty(followRequirements, message.projectId, { value: next, enumerable: true, configurable: true, writable: true });

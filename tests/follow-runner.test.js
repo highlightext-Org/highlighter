@@ -6,7 +6,7 @@ const F = require('../follows');
 
 test('runner persists processing before clicking, stops on blocked results, and never retries interrupted items', async () => {
   const elements = new Map(), log = [];
-  const element = () => ({ value: '', textContent: '', addEventListener() {}, append() {}, replaceChildren() {} });
+  const element = () => ({ value: '', textContent: '', addEventListener() {}, setAttribute() {}, append() {}, replaceChildren() {} });
   const entries = [
     { ...F.profile('interrupted'), status: 'processing' },
     { ...F.profile('alice'), status: 'pending' },
@@ -42,7 +42,7 @@ test('runner persists processing before clicking, stops on blocked results, and 
 for (const outcome of ['matched', 'skipped', 'blocked', 'stopped', 'navigated']) {
   test(`location-gated runner handles ${outcome} without bypassing the check`, async () => {
     const elements = new Map(), log = [];
-    const element = () => ({ value: '', textContent: '', addEventListener() {}, append() {}, replaceChildren() {} });
+    const element = () => ({ value: '', textContent: '', addEventListener() {}, setAttribute() {}, append() {}, replaceChildren() {} });
     const entries = [{ ...F.profile('alice'), status: 'pending' }];
     let tabURL, saved;
     const requirements = { basedIn: 'United States', connectedVia: 'United States App Store' };

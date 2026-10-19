@@ -254,3 +254,19 @@ test('handle capture stops visibly at the project limit without dropping earlier
   assert.equal(status.entries.at(-1).handle, 'last');
   assert.match(status.session.error, /1,000/);
 });
+
+test('follow speed defaults to normal, persists by project, and rejects invalid settings', async () => {
+  const app = setup();
+  const { config } = await app.send({ type: 'getState' });
+  config.projects.other = { name: 'Other', rules: [], options: {} };
+  await app.send({ type: 'saveConfig', config });
+  const send = (type, extra = {}) => app.send({ type: `follow:${type}`, projectId: 'default', ...extra });
+  assert.equal((await send('list')).speed, 'normal');
+  assert.equal((await send('speed', { speed: 'fast' })).speed, 'fast');
+  assert.equal((await app.send({ type: 'follow:list', projectId: 'other' })).speed, 'normal');
+  const restarted = setup(); Object.assign(restarted.stored, structuredClone(app.stored));
+  assert.equal((await restarted.send({ type: 'follow:list', projectId: 'default' })).speed, 'fast');
+  assert.match((await send('speed', { speed: 'instant' })).error, /Choose Slow/);
+  assert.equal((await send('list')).speed, 'fast');
+  assert.match((await send('speed', { speed: 'slow', projectId: 'missing' })).error, /existing project/);
+});

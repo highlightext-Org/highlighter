@@ -375,3 +375,13 @@ click **Add to queue** to import them. Capturing never starts the follow queue.
 **Clear captured** stops capture and clears only the captured list, keeping the
 follow queue. A full list stops capture with a visible status; download and clear
 it to continue collecting.
+
+## Automation speed
+
+In **Follow handles**, adjust **Automation speed** from Slow to Fast. Slow pauses
+60 seconds between accounts, Normal pauses 30 seconds (the default), and Fast
+pauses 10 seconds. This includes pauses after accounts skipped by the location
+check. Profile settling waits are 2.5, 1.5, and 1 second respectively; page loading
+and account checks add to the total time. Changes apply while the queue runs,
+including to the current pause, and save per project. Stop remains responsive
+during pauses. Handle capture keeps its own scroll-driven timing.

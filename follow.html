@@ -31,6 +31,13 @@
 <p id="requirements-status" role="status" aria-live="polite"></p>
 </fieldset>
 <details><summary>Automatic following on X</summary><p>Uses your signed-in X session. Keep this manager tab open while running. Closing it pauses the queue. The other platforms use manual review.</p><p>X restricts automated bulk following. <a href="https://help.x.com/en/rules-and-policies/x-automation" target="_blank" rel="noopener">Read X’s automation rules</a>. Login prompts, challenges, and unexpected page states stop the run.</p></details>
+<fieldset>
+<legend>Automation speed</legend>
+<label for="follow-speed">Slower ↔ Faster</label>
+<input id="follow-speed" type="range" min="0" max="2" step="1" value="1" disabled aria-describedby="speed-status">
+<p id="speed-status" role="status" aria-live="polite">Normal · 30 seconds between accounts.</p>
+<p>Adjust while running. Changes also affect pauses after skipped accounts and the wait for profiles to settle. Saved for this project.</p>
+</fieldset>
 <div class="timeline-actions"><button id="start" disabled>Start X queue</button><button id="stop" disabled>Stop</button><button id="clear" disabled>Clear completed / skipped</button></div>
 <p id="status" role="status" aria-live="polite">Loading queue…</p><p id="error" role="alert"></p>
 <ol id="queue"></ol>
