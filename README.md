@@ -64,3 +64,17 @@ For a browser smoke test, paste a listed keyword into the popup, toggle its
 category, then highlight a regular page containing that word. Check an inline
 phrase, edit a contenteditable field, and clear the page highlights. Test offline
 refresh after one successful download to confirm the cached list remains usable.
+
+## Community tier — free open-source tools
+
+The Community tier is **free ($0)**: use the open-source tools without a
+subscription or purchase. Company-owned software and associated technical
+documentation are available under the [MIT License](LICENSE), including its
+**AS IS / no-warranty / no-liability** provisions. Community support is best
+effort; maintenance and updates are not guaranteed.
+
+Read [license scope and software disclaimer](DISCLAIMER.md) before use. The
+software license does not grant rights in branding, third-party material,
+personal information, or generated datasets. Test suitability, verify results,
+and keep backups. Liability exclusions apply only to the extent permitted by law.
+Paid plans and custom services are separate from Community software rights.
