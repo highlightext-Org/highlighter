@@ -63,6 +63,41 @@ building does not sign or publish anything.
 19. Display the last successful sync time, persistent download errors, and invalid
     source-rule diagnostics.
 20. Isolate matching in a terminable worker, with regex deadlines and page limits.
+21. Record browsed timeline posts on X, Instagram, and TikTok in the background,
+    independently of keyword matches; stop, clear, and download JSON or CSV.
+22. Keep the popup tools open alongside pages in a Chrome/Edge side panel or
+    Firefox sidebar.
+
+## Timeline recording and sidebar
+
+Choose a project and click **Start recording** in the popup or sidebar. Recording
+starts on all open supported tabs and attaches automatically to new supported
+pages. It saves visible post text, author when available, a post permalink, the
+timeline URL, publication time when available, and capture time. It keeps running
+with the popup/sidebar closed while you browse and scroll, including after page
+navigation. Recording is off until you start it. Only one project records at a
+time; switching the project picker alone does not move an active recording.
+
+**Stop** ends capture across tabs and keeps saved posts. **Download JSON** and
+**Download CSV** export the current project's timeline records, including after
+stopping. **Clear saved** deletes this project's timeline records and stops its
+active recording. Other projects' records are retained. Deleting a project also
+clears its timeline records. These controls are separate from keyword match
+recording and clearing page highlights.
+
+The background stores up to 5,000 timeline posts across projects within a 4 MiB
+serialized storage budget, removing the oldest first. Export before that limit
+if you need to retain everything. Repeated sightings of the same permalink are
+saved once per project; without a permalink, author and text identify duplicates.
+The first captured version is retained. Recording state survives browser restarts
+and resumes on supported pages until stopped. It captures already loaded posts
+as they appear in the viewport, without scrolling for you, downloading video
+files, or fetching hidden content. Site layout changes may require adapter
+updates; captions, authors, and timestamps depend on the rendered page.
+
+Click **Keep open in sidebar** to open the same controls beside the current tab.
+Chrome/Edge also list Highlightext in their side panel selector; Firefox lists it
+in the sidebar selector. You can keep that panel open as you navigate.
 
 ## Using projects and custom rules
 
@@ -209,13 +244,17 @@ crawl profiles, load comments, or fetch private content.
 ## Privacy and permissions
 
 `activeTab` and `scripting` enable page highlighting after your click. `storage`
-keeps definitions, settings, and optional match records. `alarms` enables daily
+keeps definitions, settings, and optional match and timeline records. `alarms` enables daily
 checks when selected. Chrome's `offscreen` permission hosts the worker; Firefox
-does not request that permission. The only permanent website permission is the
-published definitions host. If Firefox blocks its download, allow the word-list
+does not request that permission. Chrome's `sidePanel` permission enables the
+persistent sidebar. Website permissions cover the published definitions host
+and X/Twitter, Instagram, and TikTok so recording can continue across navigation
+while the popup is closed. Recording scripts remain idle until recording starts.
+After updating, accept the added site permissions if the browser requests them.
+If Firefox blocks its download, allow the word-list
 host in the extension's website permissions in `about:addons`.
 
-No page content, pasted text, custom rules, or match records are uploaded. There
+No page content, pasted text, custom rules, match records, or timeline records are uploaded. There
 is no analytics or remote executable code. The word-list server receives normal
 download requests. Popup drafts use browser session storage, not persistent local
 storage. Definitions/configuration and enabled recording do persist locally until

@@ -1,5 +1,5 @@
 // Firefox preloads these scripts in its event page; Chrome uses a service worker.
-if (typeof importScripts === 'function') importScripts('definitions.js', 'matcher.js', 'chrome-host.js');
+if (typeof importScripts === 'function') importScripts('definitions.js', 'matcher.js', 'timeline.js', 'chrome-host.js');
 const SOURCE = 'https://highlightext-org.github.io/words/master.json';
 // Bump when parsing changes so previously normalized caches are downloaded again.
 const DEFINITIONS_VERSION = 2;
@@ -94,6 +94,7 @@ async function scan(message, sender) {
   return result;
 }
 async function handle(message, sender) {
+  if (message.type?.startsWith('timeline:')) return handleTimeline(message, sender);
   switch (message.type) {
     case 'loadTerms': {
       try { await loadTerms(message.force); return { ok: true, ...await state() }; }
@@ -117,10 +118,80 @@ async function handle(message, sender) {
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
   if (message.target === 'match-host') return;
   // Injected scripts can scan a page; configuration and exports belong to extension UI.
-  if (sender.tab && !sender.url?.startsWith(chrome.runtime.getURL('')) && message.type !== 'scan') { respond({ error: 'Open the extension to manage rules.' }); return; }
+  if (sender.tab && !sender.url?.startsWith(chrome.runtime.getURL('')) && !['scan', 'timeline:capture', 'timeline:status'].includes(message.type)) { respond({ error: 'Open the extension to manage rules.' }); return; }
   handle(message, sender).then(respond, error => respond({ error: error.message }));
   return true;
 });
 chrome.alarms?.onAlarm.addListener(alarm => { if (alarm.name === 'definitions-sync') loadTerms(true).catch(() => {}); });
 chrome.runtime.onStartup?.addListener(() => getConfig().then(configureAlarms));
 chrome.runtime.onInstalled?.addListener(() => getConfig().then(configureAlarms));
+
+async function timelineState(projectId) {
+  const { timelineSession = null, timelineRecords = [], timelineDropped = 0 } = await chrome.storage.local.get(['timelineSession', 'timelineRecords', 'timelineDropped']);
+  return { session: timelineSession, count: timelineRecords.filter(record => record.projectId === projectId).length,
+    total: timelineRecords.length, dropped: timelineDropped };
+}
+async function handleTimeline(message, sender) {
+  const T = HighlightextTimeline;
+  const fromPage = sender.tab && !sender.url?.startsWith(chrome.runtime.getURL(''));
+  if (fromPage && !T.platform(sender.url)) throw new Error('Timeline recording supports X, Instagram, and TikTok.');
+  if (message.type === 'timeline:status') {
+    // Pages only need the session token, never saved text from other tabs.
+    if (fromPage) { const { timelineSession = null } = await chrome.storage.local.get('timelineSession'); return { session: timelineSession }; }
+    return timelineState(message.projectId);
+  }
+  if (message.type === 'timeline:capture') {
+    if (!fromPage || sender.frameId > 0) throw new Error('Timeline posts must come from a supported page.');
+    if (!Array.isArray(message.entries) || message.entries.length > 100 || JSON.stringify(message.entries).length > 1500000) throw new Error('Timeline batch is too large.');
+    return mutate(async () => {
+      const { timelineSession, timelineRecords = [], timelineDropped = 0 } = await chrome.storage.local.get(['timelineSession', 'timelineRecords', 'timelineDropped']);
+      // Check inside the write queue: stop and clear cannot race with pending captures.
+      if (!timelineSession?.active || timelineSession.id !== message.sessionId) return { active: false };
+      const now = new Date().toISOString();
+      const entries = message.entries.map(entry => T.normalize(entry, sender.url, timelineSession.projectId, now));
+      const result = T.append(timelineRecords, entries);
+      try {
+        await chrome.storage.local.set({ timelineRecords: result.records, timelineDropped: timelineDropped + result.dropped });
+      } catch (error) {
+        await chrome.storage.local.set({ timelineSession: { ...timelineSession, active: false, error: `Recording stopped: ${error.message}` } });
+        throw error;
+      }
+      return { active: true };
+    });
+  }
+  if (fromPage) throw new Error('Open the extension to manage timeline recording.');
+  switch (message.type) {
+    case 'timeline:start': {
+      await mutate(async () => {
+        const config = await getConfig();
+        if (!config.projects[message.projectId]) throw new Error('Select a valid project.');
+        await chrome.storage.local.set({ timelineSession: { id: crypto.randomUUID(), active: true, projectId: message.projectId, startedAt: new Date().toISOString() } });
+      });
+      // Manifest scripts cover future navigations; attach to supported tabs already open.
+      const tabs = await chrome.tabs.query({ url: T.MATCHES });
+      const attached = await Promise.allSettled(tabs.map(tab => chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['timeline.js', 'timeline-content.js'] })));
+      return { ...await timelineState(message.projectId), attachErrors: attached.filter(result => result.status === 'rejected').length };
+    }
+    case 'timeline:stop':
+      return mutate(async () => {
+        const { timelineSession } = await chrome.storage.local.get('timelineSession');
+        if (timelineSession) await chrome.storage.local.set({ timelineSession: { ...timelineSession, active: false, stoppedAt: new Date().toISOString() } });
+        return timelineState(message.projectId);
+      });
+    case 'timeline:clear':
+      return mutate(async () => {
+        const { timelineRecords = [], timelineSession } = await chrome.storage.local.get(['timelineRecords', 'timelineSession']);
+        const changes = { timelineRecords: timelineRecords.filter(record => record.projectId !== message.projectId) };
+        // Stop this project's session so visible posts do not immediately reappear.
+        if (timelineSession?.projectId === message.projectId) changes.timelineSession = { ...timelineSession, id: crypto.randomUUID(), active: false, stoppedAt: new Date().toISOString() };
+        if (!changes.timelineRecords.length) changes.timelineDropped = 0;
+        await chrome.storage.local.set(changes);
+        return timelineState(message.projectId);
+      });
+    case 'timeline:export': {
+      const { timelineRecords = [] } = await chrome.storage.local.get('timelineRecords');
+      return { records: timelineRecords.filter(record => record.projectId === message.projectId).map(({ key, ...record }) => record) };
+    }
+    default: throw new Error('Unknown timeline request.');
+  }
+}

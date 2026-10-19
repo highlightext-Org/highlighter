@@ -104,7 +104,8 @@ $('create-project').addEventListener('click', action(async () => {
   state.config.activeProject = id; await save(); $('project-name').value = ''; resetEditor();
 }));
 $('delete-project').addEventListener('click', action(async () => {
-  if (!confirm(`Delete ${project().name} and its match records?`)) return;
+  if (!confirm(`Delete ${project().name} and its match and timeline records?`)) return;
+  await request({ type: 'timeline:clear', projectId: state.config.activeProject });
   await request({ type: 'clearRecords', projectId: state.config.activeProject }); delete state.config.projects[state.config.activeProject]; state.config.activeProject = Object.keys(state.config.projects)[0]; await save(); resetEditor();
 }));
 $('auto-refresh').addEventListener('change', action(async () => { state.config.autoRefresh = $('auto-refresh').checked; await save(); }));

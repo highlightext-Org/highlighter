@@ -5,6 +5,16 @@
   <header><div class="logo">H<span>✦</span></div><div><h1>Highlightext</h1><p>Find the words that matter.</p></div><button id="refresh" class="quiet" title="Refresh word list" aria-label="Refresh word list">↻</button></header>
   <div id="status" role="status">Loading your word list…</div>
   <div class="project-picker"><label for="project">Project</label><select id="project"></select><button id="manage">Manage rules</button></div>
+  <button id="open-sidebar" class="secondary sidebar-button">Keep open in sidebar ↗</button>
+  <section class="timeline" aria-labelledby="timeline-title">
+    <div class="timeline-heading"><h2 id="timeline-title">Timeline recorder</h2><span id="recording-indicator">Stopped</span></div>
+    <p class="timeline-hint">Save posts you browse on X, Instagram, and TikTok. Continues with this popup closed.</p>
+    <div class="timeline-actions"><button id="timeline-start" disabled>Start recording</button><button id="timeline-stop" disabled>Stop</button></div>
+    <p id="timeline-status" role="status" aria-live="polite">Loading recording status…</p>
+    <div class="timeline-actions"><button id="timeline-json" disabled>Download JSON</button><button id="timeline-csv" disabled>Download CSV</button><button id="timeline-clear" disabled>Clear saved</button></div>
+    <p class="timeline-hint">Text, author, links, and timestamps · Current project · Stored locally. Captures loaded posts as you scroll; video files are not recorded.</p>
+    <p id="timeline-error" role="alert"></p>
+  </section>
   <fieldset><legend>Match types</legend><label><input type="checkbox" data-option="keyword" checked><i class="keyword"></i>Keywords</label><label><input type="checkbox" data-option="handle" checked><i class="handle"></i>Handles</label><label><input type="checkbox" data-option="wallet" checked><i class="wallet"></i>Wallets</label><label><input type="checkbox" data-option="url" checked><i class="url"></i>URLs</label></fieldset>
   <div class="editor-heading"><label for="text">Try your text</label><span id="count" aria-live="polite">0 matches</span></div>
   <div class="editor"><div id="highlights" aria-hidden="true"></div><textarea id="text" spellcheck="false" placeholder="Type or paste text here. Matches appear as you type."></textarea></div>
@@ -14,5 +24,5 @@
   <p id="page-status" role="status"></p>
   <p class="software-notice">Community · Free open-source tools. Provided as is, without warranty. <a href="https://github.com/highlightext-Org/highlighter/blob/main/DISCLAIMER.md" target="_blank" rel="noopener">License &amp; liability notice ↗</a></p>
   <footer>Text stays in your browser. <a href="https://highlightext-org.github.io/words/master.json" target="_blank" rel="noopener">View word list ↗</a></footer>
-  <script src="popup.js"></script>
+  <script src="timeline.js"></script><script src="sidebar.js"></script><script src="popup.js"></script>
 </body></html>

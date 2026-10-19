@@ -21,14 +21,20 @@ test('both packages boot and load terms in their browser background environments
       assert(!files.includes('scripts'));
       const manifest = JSON.parse(await readFile(path.join(destination, 'manifest.json'), 'utf8'));
       assert.equal(manifest.manifest_version, 3);
-      assert.deepEqual(manifest.permissions, browser === 'chrome' ? ['storage', 'activeTab', 'scripting', 'alarms', 'offscreen'] : ['storage', 'activeTab', 'scripting', 'alarms']);
+      assert.deepEqual(manifest.permissions, browser === 'chrome' ? ['storage', 'activeTab', 'scripting', 'alarms', 'offscreen', 'sidePanel'] : ['storage', 'activeTab', 'scripting', 'alarms']);
+      assert.deepEqual(manifest.content_scripts[0].js, ['timeline.js', 'timeline-content.js']);
+      assert(files.includes('timeline.js') && files.includes('timeline-content.js'));
+      for (const match of manifest.content_scripts[0].matches) assert(manifest.host_permissions.includes(match));
       if (browser === 'firefox') {
         assert.equal(manifest.background.service_worker, undefined);
         assert.equal(manifest.browser_specific_settings.gecko.strict_min_version, '140.0');
         assert.deepEqual(manifest.browser_specific_settings.gecko.data_collection_permissions.required, ['none']);
+        assert.equal(manifest.side_panel, undefined);
+        assert.equal(manifest.sidebar_action.default_panel, 'popup.html?sidebar=1');
       } else {
         assert.equal(manifest.background.scripts, undefined);
         assert.equal(manifest.browser_specific_settings, undefined);
+        assert.equal(manifest.side_panel.default_path, 'popup.html?sidebar=1');
       }
 
       const sources = Object.fromEntries(await Promise.all(files.filter(file => file.endsWith('.js')).map(async file => [file, await readFile(path.join(destination, file), 'utf8')])));

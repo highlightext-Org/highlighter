@@ -3,9 +3,15 @@
     "scripts": [
       "definitions.js",
       "matcher.js",
+      "timeline.js",
       "worker-host.js",
       "background.js"
     ]
+  },
+  "sidebar_action": {
+    "default_title": "Highlightext",
+    "default_panel": "popup.html?sidebar=1",
+    "open_at_install": false
   },
   "browser_specific_settings": {
     "gecko": {

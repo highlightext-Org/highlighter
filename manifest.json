@@ -1,18 +1,31 @@
 {
   "manifest_version": 3,
   "name": "Highlightext",
-  "version": "0.2.0",
-  "description": "Highlight keywords and regex patterns with project rules, offline definitions, and local match records.",
+  "version": "0.3.0",
+  "description": "Highlight keywords and regex patterns, record browsed social timelines locally, and keep tools open in a sidebar.",
   "permissions": [
     "storage",
     "activeTab",
     "scripting",
     "alarms",
-    "offscreen"
+    "offscreen",
+    "sidePanel"
   ],
   "host_permissions": [
-    "https://highlightext-org.github.io/words/master.json"
+    "https://highlightext-org.github.io/words/master.json",
+    "https://x.com/*",
+    "https://twitter.com/*",
+    "https://www.instagram.com/*",
+    "https://instagram.com/*",
+    "https://www.tiktok.com/*",
+    "https://tiktok.com/*"
   ],
+  "content_scripts": [{
+    "matches": ["https://x.com/*", "https://twitter.com/*", "https://www.instagram.com/*", "https://instagram.com/*", "https://www.tiktok.com/*", "https://tiktok.com/*"],
+    "js": ["timeline.js", "timeline-content.js"],
+    "run_at": "document_idle"
+  }],
+  "side_panel": { "default_path": "popup.html?sidebar=1" },
   "background": {
     "service_worker": "background.js"
   },
