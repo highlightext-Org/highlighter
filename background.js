@@ -4,7 +4,7 @@ const SOURCE = 'https://highlightext-org.github.io/words/master.json';
 // Bump when parsing changes so previously normalized caches are downloaded again.
 const DEFINITIONS_VERSION = 3;
 let pending, writeQueue = Promise.resolve();
-const defaultConfig = () => ({ activeProject: 'default', autoHighlight: true, autoRefresh: false, localRules: [], projects: { default: { name: 'Default', rules: [], overrides: {}, disabledGroups: [], options: { wholeWords: true, caseSensitive: false }, recordMatches: false } } });
+const defaultConfig = () => ({ activeProject: 'default', autoHighlight: true, autoLikeX: false, autoRefresh: false, localRules: [], projects: { default: { name: 'Default', rules: [], overrides: {}, disabledGroups: [], options: { wholeWords: true, caseSensitive: false }, recordMatches: false } } });
 async function getConfig() {
   const { config, options } = await chrome.storage.local.get(['config', 'options']);
   if (config) return config;
@@ -118,6 +118,7 @@ async function handle(message, sender) {
       }
       await chrome.storage.local.set({ config }); await configureAlarms(config);
       if (config.autoHighlight !== false && previous.autoHighlight === false) await attachHighlights();
+      if (config.autoLikeX === true && previous.autoLikeX !== true) await attachAutoLike();
       return { ok: true };
     });
     case 'scan': return scan(message, sender);
@@ -135,6 +136,10 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
 });
 chrome.alarms?.onAlarm.addListener(alarm => { if (alarm.name === 'definitions-sync') loadTerms(true).catch(() => {}); });
 chrome.runtime.onStartup?.addListener(() => getConfig().then(configureAlarms));
+async function attachAutoLike() {
+  const tabs = await chrome.tabs.query({ url: ['https://x.com/*', 'https://twitter.com/*'] });
+  await Promise.allSettled(tabs.map(tab => chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['auto-like-content.js'] })));
+}
 async function attachHighlights() {
   const tabs = await chrome.tabs.query({ url: ['http://*/*', 'https://*/*'] });
   await Promise.allSettled(tabs.map(tab => chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] })));
@@ -143,6 +148,7 @@ chrome.runtime.onInstalled?.addListener(async () => {
   const config = await getConfig();
   await configureAlarms(config);
   if (config.autoHighlight !== false) await attachHighlights();
+  if (config.autoLikeX === true) await attachAutoLike();
 });
 
 async function timelineState(projectId) {

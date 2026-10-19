@@ -34,6 +34,22 @@ Zip each build directory's contents with `manifest.json` at the archive root for
 store submission. Build outputs contain extension assets and license files only;
 building does not sign or publish anything.
 
+## Nearby auto-like (X)
+
+Turn on **Auto-like nearby posts on X** in the popup or sidebar. It is off by
+default and remembers your choice across tabs and browser restarts. With it on,
+move your mouse within 100 CSS pixels of the edge of a visible post's Like button
+to click it. The nearest eligible button is clicked once per pointer movement
+frame. Already-liked, disabled, covered, and previously attempted posts are skipped.
+It continues with the popup closed; turning the toggle off cancels queued clicks.
+Scrolling alone does not trigger likes. Only mouse input in a focused tab is used.
+
+X and twitter.com are supported first. Other platforms are not enabled yet;
+site selectors and post identity are isolated for future platform adapters.
+If X changes its markup, this feature may need an update. An attempted click does
+not verify that X accepted the like. Automated tests use simulated buttons and do
+not interact with real accounts.
+
 ## Handle follow queue
 
 Open **Follow a list of handles** in the popup or sidebar. Paste handles or profile

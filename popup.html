@@ -9,6 +9,8 @@
   <div class="project-picker"><label for="project">Project</label><select id="project"></select><button id="manage">Manage rules</button></div>
   <button id="open-sidebar" class="secondary sidebar-button">Keep open in sidebar ↗</button>
   <button id="open-follows" class="secondary sidebar-button">Follow a list of handles ↗</button>
+  <label class="auto-highlight" for="auto-like-x"><span><strong>Auto-like nearby posts on X</strong><small>Likes a post when your pointer is within 100 px of its Like button. Off by default. X only.</small></span><input id="auto-like-x" type="checkbox" role="switch" disabled></label>
+  <p id="auto-like-status" class="timeline-hint" role="status" aria-live="polite"></p>
   <section class="timeline" aria-labelledby="timeline-title">
     <div class="timeline-heading"><h2 id="timeline-title">Timeline recorder</h2><span id="recording-indicator">Stopped</span></div>
     <p class="timeline-hint">Save posts you browse on X, Instagram, and TikTok. Continues with this popup closed.</p>

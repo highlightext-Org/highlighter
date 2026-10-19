@@ -271,3 +271,15 @@ test('follow speed defaults to normal, persists by project, and rejects invalid 
   assert.equal((await send('list')).speed, 'fast');
   assert.match((await send('speed', { speed: 'slow', projectId: 'missing' })).error, /existing project/);
 });
+
+test('nearby auto-like defaults off and persists independently of highlighting', async () => {
+  const app = setup(); const { config } = await app.send({ type: 'getState' });
+  assert.equal(config.autoLikeX, false);
+  config.autoLikeX = true; config.autoHighlight = false;
+  assert.equal((await app.send({ type: 'saveConfig', config })).ok, true);
+  assert.equal((await app.send({ type: 'getState' })).config.autoLikeX, true);
+  assert.equal(app.stored.config.autoHighlight, false);
+  config.autoLikeX = false;
+  assert.equal((await app.send({ type: 'saveConfig', config })).ok, true);
+  assert.equal((await app.send({ type: 'getState' })).config.autoLikeX, false);
+});

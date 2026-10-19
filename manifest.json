@@ -51,6 +51,16 @@
         "handle-capture-content.js"
       ],
       "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://x.com/*",
+        "https://twitter.com/*"
+      ],
+      "js": [
+        "auto-like-content.js"
+      ],
+      "run_at": "document_idle"
     }
   ],
   "side_panel": {

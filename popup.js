@@ -37,6 +37,9 @@ async function load(force = false) {
   finally { $('refresh').disabled = false; }
 }
 function drawProjectControls() {
+  $('auto-like-x').checked = state.config.autoLikeX === true;
+  $('auto-like-x').disabled = false;
+  $('auto-like-status').textContent = state.config.autoLikeX === true ? 'Auto-like is on for X · 100 px radius · Works with this popup closed.' : 'Auto-like is off.';
   $('auto-highlight').checked = state.config.autoHighlight !== false;
   $('auto-highlight').disabled = false;
   $('page-status').textContent = state.config.autoHighlight !== false ? 'Automatic highlighting is on for all web pages.' : 'Automatic highlighting is off.';
@@ -130,4 +133,18 @@ $('open-sidebar').addEventListener('click', () => {
 $('open-follows').addEventListener('click', () => {
   if (!state) return;
   chrome.tabs.create({ url: chrome.runtime.getURL(`follow.html?project=${encodeURIComponent(state.config.activeProject)}`) }).catch(error => { $('page-status').textContent = error.message; });
+});
+
+$('auto-like-x').addEventListener('change', async () => {
+  $('auto-like-x').disabled = true;
+  const previous = state.config.autoLikeX;
+  try {
+    state.config.autoLikeX = $('auto-like-x').checked;
+    await request({ type: 'saveConfig', config: state.config });
+    drawProjectControls();
+  } catch (error) {
+    state.config.autoLikeX = previous;
+    drawProjectControls();
+    $('auto-like-status').textContent = error.message;
+  } finally { $('auto-like-x').disabled = false; }
 });
