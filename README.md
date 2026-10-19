@@ -230,6 +230,12 @@ A regex uses JavaScript semantics, not PCRE. `g` is always applied to find all
 matches; sticky `y` retains its JavaScript behavior. Boundaries are checked on the
 actual matched text rather than inserting regex `\b` into the user's expression.
 
+Leading global regex modes from source exports, such as `(?i)Burbank`, are
+converted to JavaScript flags when definitions load. Invalid patterns still
+report errors. Up to 1,000 enabled regex rules are supported per project, with
+the existing worker execution deadlines. Matching uses the configured spelling:
+`Burbank` matches the city name, while `Brubank` is a different word.
+
 ## Import and export
 
 The manager accepts JSON arrays of rule objects, or objects with the collections

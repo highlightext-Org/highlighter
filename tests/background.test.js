@@ -37,14 +37,15 @@ test('sync cache preserves last success and visible errors across offline reques
   const cached = await app.send({ type: 'loadTerms' }); assert.equal(cached.syncError, 'Offline test'); assert.equal(app.downloads(), 2);
 });
 
-test('old cached literals refresh once and a 226-pattern master can save and scan', async () => {
-  const keywords = Array.from({ length: 226 }, (_, i) => ({ text: `\\bplace[\\s-]*${i}\\b`, match_mode: 'regex' }));
+test('old cached definitions refresh once and a 674-pattern master can save and scan', async () => {
+  const keywords = Array.from({ length: 674 }, (_, i) => ({ text: `(?i)\\bplace[\\s-]*${i}\\b`, match_mode: 'regex' }));
   const app = setup({ schema_version: 1, keywords, profiles: [] });
   app.stored.remoteRules = [Rules.normalizeRule({ text: keywords[0].text })];
   app.stored.updatedAt = Date.now();
+  app.stored.definitionsVersion = 2;
   const loaded = await app.send({ type: 'loadTerms' });
   assert.equal(loaded.ok, true);
-  assert.equal(loaded.terms.length, 226);
+  assert.equal(loaded.terms.length, 674);
   assert(loaded.terms.every(rule => rule.type === 'regex'));
   assert.equal((await app.send({ type: 'saveConfig', config: loaded.config })).ok, true);
   const scan = await app.send({ type: 'scan', texts: ['PLACE-225 place 0'] });
@@ -53,7 +54,7 @@ test('old cached literals refresh once and a 226-pattern master can save and sca
   assert.equal(app.downloads(), 1);
   loaded.config.projects.default.rules = Array.from({ length: Matcher.MAX_REGEX_RULES + 1 }, (_, i) =>
     ({ id: `local-${i}`, text: `custom${i}`, type: 'regex' }));
-  assert.match((await app.send({ type: 'saveConfig', config: loaded.config })).error, /at most 500/);
+  assert.match((await app.send({ type: 'saveConfig', config: loaded.config })).error, /at most 1000/);
 });
 
 test('project settings and daily alarms persist; page records are isolated, deduplicated and optional', async () => {

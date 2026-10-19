@@ -102,3 +102,25 @@ test('same text in different campaign groups remains individually selectable', (
   const active = R.resolveRules(rules, [], { disabledGroups: ['North'] });
   assert.equal(active.length, 1); assert.equal(active[0].group, 'South');
 });
+
+test('Python-style leading regex flags load Burbank sources without changing literal spelling matches', () => {
+  const data = { keywords: [
+    { text: '(?i)Burbank', match_mode: 'regex' },
+    { text: '(?i)City\\s+of\\s+Burbank', match_mode: 'regex' },
+    { text: '(?im)^Burbank$', match_mode: 'regex', flags: 'u' },
+    { text: '(?i)literal', match_mode: 'literal' }
+  ] };
+  const { rules, errors } = R.extractRules(data);
+  assert.equal(errors.length, 0);
+  assert.equal(rules[0].text, 'Burbank');
+  assert.equal(rules[0].flags, 'i');
+  assert.equal(rules[2].flags, 'uim');
+  assert.equal(rules[3].text, '(?i)literal');
+  const match = createMatcher(R.resolveRules(rules));
+  for (const text of ['Burbank', 'BURBANK', 'burbank', 'City of Burbank']) assert.equal(match(text).length, 1);
+  assert.equal(match('Brubank').length, 0);
+  assert.equal(match('Burbanker').length, 0);
+  assert.equal(R.normalizeRule({ pattern: '(?i)(?m)^city$', flags: 'i' }).flags, 'im');
+  for (const pattern of ['(?x)Burbank', '(?i)']) assert.throws(() => R.normalizeRule({ pattern }));
+  assert.throws(() => R.normalizeRule({ pattern: '(?i)Burbank', flags: 'ii' }), /duplicate/);
+});

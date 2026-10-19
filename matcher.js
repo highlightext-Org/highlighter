@@ -1,8 +1,8 @@
 (function (root) {
   'use strict';
   const DEFAULT_COLOR = '#fde047';
-  // Allow the central 226-pattern list plus custom rules; worker deadlines still apply.
-  const MAX_REGEX_RULES = 500;
+  // Allow all 674 central patterns plus custom rules; worker deadlines still apply.
+  const MAX_REGEX_RULES = 1000;
   const word = /[\p{L}\p{N}_]/u;
   const color = value => /^#[0-9a-f]{6}$/i.test(value || '') ? value : DEFAULT_COLOR;
 

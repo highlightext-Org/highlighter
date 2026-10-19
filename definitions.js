@@ -17,6 +17,14 @@
     if (!text || text.length > 2048) throw new Error('Rules must contain 1–2,048 characters.');
     if (type === 'regex') {
       if (!/^[dgimsuvy]*$/.test(flags) || new Set(flags).size !== flags.length) throw new Error('Invalid or duplicate regex flags.');
+      // Python-style source exports put global flags at the start of the pattern.
+      // JavaScript needs these in RegExp's flags argument. Leave other modes to the engine’s syntax validation.
+      let inline;
+      while ((inline = /^\(\?([ims]+)\)/.exec(text))) {
+        text = text.slice(inline[0].length);
+        flags = [...new Set(flags + inline[1])].join('');
+      }
+      if (!text) throw new Error('A regex must contain a pattern after its flags.');
       // Syntax validation only. Execution always happens in a terminable worker.
       new RegExp(text, flags);
     } else flags = '';

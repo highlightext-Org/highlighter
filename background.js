@@ -2,7 +2,7 @@
 if (typeof importScripts === 'function') importScripts('definitions.js', 'matcher.js', 'timeline.js', 'follows.js', 'chrome-host.js');
 const SOURCE = 'https://highlightext-org.github.io/words/master.json';
 // Bump when parsing changes so previously normalized caches are downloaded again.
-const DEFINITIONS_VERSION = 2;
+const DEFINITIONS_VERSION = 3;
 let pending, writeQueue = Promise.resolve();
 const defaultConfig = () => ({ activeProject: 'default', autoHighlight: true, autoRefresh: false, localRules: [], projects: { default: { name: 'Default', rules: [], overrides: {}, disabledGroups: [], options: { wholeWords: true, caseSensitive: false }, recordMatches: false } } });
 async function getConfig() {
