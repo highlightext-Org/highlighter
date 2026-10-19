@@ -16,46 +16,45 @@
   const platform = platforms[location.hostname];
   if (!platform) return;
   globalThis.__highlightextAutoLikeInstalled = true;
-  const radius = 100, attempted = new WeakSet(), posts = new Set();
-  let enabled = false, frame = null, pointer = null, version = 0;
+  const attempted = new WeakSet(), posts = new Set();
+  let enabled = false, frame = null, hovered = null, version = 0;
   function cancel() {
     if (frame !== null) cancelAnimationFrame(frame);
-    frame = null; pointer = null;
+    frame = null; hovered = null;
   }
   function update(config) {
     version++;
     enabled = config?.autoLikeX === true;
     if (!enabled) cancel();
   }
-  function clickNearest() {
+  function clickHovered() {
     frame = null;
-    if (!enabled || !pointer || document.visibilityState !== 'visible' || !document.hasFocus()) return;
-    let nearest, minimum = radius + 1;
-    for (const button of document.querySelectorAll(platform.selector)) {
-      const key = platform.key(button);
-      if (attempted.has(button) || (key && posts.has(key)) || button.disabled || button.getAttribute('aria-disabled') === 'true' || button.getAttribute('aria-pressed') === 'true') continue;
-      if (button.closest('[hidden],[aria-hidden="true"],[inert]')) continue;
-      const rect = button.getBoundingClientRect();
-      if (rect.width <= 0 || rect.height <= 0 || rect.bottom <= 0 || rect.right <= 0 || rect.top >= innerHeight || rect.left >= innerWidth) continue;
-      const distance = Math.hypot(Math.max(rect.left - pointer.x, 0, pointer.x - rect.right), Math.max(rect.top - pointer.y, 0, pointer.y - rect.bottom));
-      if (distance > radius || distance >= minimum) continue;
-      const style = getComputedStyle(button);
-      if (style.visibility !== 'visible' || Number(style.opacity) === 0 || style.pointerEvents === 'none') continue;
-      const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
-      if (!hit || !button.contains(hit)) continue;
-      nearest = { button, key }; minimum = distance;
-    }
-    if (!nearest) return;
-    attempted.add(nearest.button);
-    if (nearest.key) posts.add(nearest.key);
-    nearest.button.click();
+    const button = hovered;
+    if (!enabled || !button || !button.isConnected || document.visibilityState !== 'visible' || !document.hasFocus()) return;
+    const key = platform.key(button);
+    if (!button.matches(platform.selector) || attempted.has(button) || (key && posts.has(key)) || button.disabled || button.getAttribute('aria-disabled') === 'true' || button.getAttribute('aria-pressed') === 'true') return;
+    if (button.closest('[hidden],[aria-hidden="true"],[inert]')) return;
+    const rect = button.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0 || rect.bottom <= 0 || rect.right <= 0 || rect.top >= innerHeight || rect.left >= innerWidth) return;
+    const style = getComputedStyle(button);
+    if (style.visibility !== 'visible' || Number(style.opacity) === 0 || style.pointerEvents === 'none') return;
+    attempted.add(button);
+    if (key) posts.add(key);
+    button.click();
   }
-  function move(event) {
+  function over(event) {
     if (!enabled || !event.isTrusted || event.pointerType !== 'mouse' || event.buttons) return;
-    pointer = { x: event.clientX, y: event.clientY };
-    if (frame === null) frame = requestAnimationFrame(clickNearest);
+    const button = event.target.closest?.(platform.selector);
+    if (!button || button === hovered) return;
+    cancel();
+    hovered = button;
+    frame = requestAnimationFrame(clickHovered);
   }
-  document.addEventListener('pointermove', move, { passive: true });
+  function out(event) {
+    if (hovered && !hovered.contains(event.relatedTarget)) cancel();
+  }
+  document.addEventListener('pointerover', over, { passive: true });
+  document.addEventListener('pointerout', out, { passive: true });
   document.addEventListener('pointerdown', cancel, { passive: true });
   document.addEventListener('pointerleave', cancel, { passive: true });
   document.addEventListener('visibilitychange', cancel);

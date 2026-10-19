@@ -272,7 +272,7 @@ test('follow speed defaults to normal, persists by project, and rejects invalid 
   assert.match((await send('speed', { speed: 'slow', projectId: 'missing' })).error, /existing project/);
 });
 
-test('nearby auto-like defaults off and persists independently of highlighting', async () => {
+test('hover auto-like defaults off and persists independently of highlighting', async () => {
   const app = setup(); const { config } = await app.send({ type: 'getState' });
   assert.equal(config.autoLikeX, false);
   config.autoLikeX = true; config.autoHighlight = false;
@@ -282,4 +282,19 @@ test('nearby auto-like defaults off and persists independently of highlighting',
   config.autoLikeX = false;
   assert.equal((await app.send({ type: 'saveConfig', config })).ok, true);
   assert.equal((await app.send({ type: 'getState' })).config.autoLikeX, false);
+});
+
+test('hover auto-follow defaults off and persists independently of likes and highlighting', async () => {
+  const app = setup(); const { config } = await app.send({ type: 'getState' });
+  assert.equal(config.autoFollowX, false);
+  config.autoFollowX = true; config.autoLikeX = false; config.autoHighlight = false;
+  assert.equal((await app.send({ type: 'saveConfig', config })).ok, true);
+  assert.equal((await app.send({ type: 'getState' })).config.autoFollowX, true);
+  assert.equal(app.stored.config.autoLikeX, false);
+  assert.equal(app.stored.config.autoHighlight, false);
+  const restarted = setup(); Object.assign(restarted.stored, structuredClone(app.stored));
+  assert.equal((await restarted.send({ type: 'getState' })).config.autoFollowX, true);
+  config.autoFollowX = false;
+  assert.equal((await app.send({ type: 'saveConfig', config })).ok, true);
+  assert.equal((await app.send({ type: 'getState' })).config.autoFollowX, false);
 });

@@ -4,7 +4,7 @@ const SOURCE = 'https://highlightext-org.github.io/words/master.json';
 // Bump when parsing changes so previously normalized caches are downloaded again.
 const DEFINITIONS_VERSION = 3;
 let pending, writeQueue = Promise.resolve();
-const defaultConfig = () => ({ activeProject: 'default', autoHighlight: true, autoLikeX: false, autoRefresh: false, localRules: [], projects: { default: { name: 'Default', rules: [], overrides: {}, disabledGroups: [], options: { wholeWords: true, caseSensitive: false }, recordMatches: false } } });
+const defaultConfig = () => ({ activeProject: 'default', autoHighlight: true, autoLikeX: false, autoFollowX: false, autoRefresh: false, localRules: [], projects: { default: { name: 'Default', rules: [], overrides: {}, disabledGroups: [], options: { wholeWords: true, caseSensitive: false }, recordMatches: false } } });
 async function getConfig() {
   const { config, options } = await chrome.storage.local.get(['config', 'options']);
   if (config) return config;
@@ -119,6 +119,7 @@ async function handle(message, sender) {
       await chrome.storage.local.set({ config }); await configureAlarms(config);
       if (config.autoHighlight !== false && previous.autoHighlight === false) await attachHighlights();
       if (config.autoLikeX === true && previous.autoLikeX !== true) await attachAutoLike();
+      if (config.autoFollowX === true && previous.autoFollowX !== true) await attachAutoFollow();
       return { ok: true };
     });
     case 'scan': return scan(message, sender);
@@ -140,6 +141,10 @@ async function attachAutoLike() {
   const tabs = await chrome.tabs.query({ url: ['https://x.com/*', 'https://twitter.com/*'] });
   await Promise.allSettled(tabs.map(tab => chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['auto-like-content.js'] })));
 }
+async function attachAutoFollow() {
+  const tabs = await chrome.tabs.query({ url: ['https://x.com/*', 'https://twitter.com/*'] });
+  await Promise.allSettled(tabs.map(tab => chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['auto-follow-content.js'] })));
+}
 async function attachHighlights() {
   const tabs = await chrome.tabs.query({ url: ['http://*/*', 'https://*/*'] });
   await Promise.allSettled(tabs.map(tab => chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] })));
@@ -149,6 +154,7 @@ chrome.runtime.onInstalled?.addListener(async () => {
   await configureAlarms(config);
   if (config.autoHighlight !== false) await attachHighlights();
   if (config.autoLikeX === true) await attachAutoLike();
+  if (config.autoFollowX === true) await attachAutoFollow();
 });
 
 async function timelineState(projectId) {

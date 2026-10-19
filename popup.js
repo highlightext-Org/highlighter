@@ -37,9 +37,12 @@ async function load(force = false) {
   finally { $('refresh').disabled = false; }
 }
 function drawProjectControls() {
+  $('auto-follow-x').checked = state.config.autoFollowX === true;
+  $('auto-follow-x').disabled = false;
+  $('auto-follow-status').textContent = state.config.autoFollowX === true ? 'Auto-follow is on for X · Hover over a Follow button · Works with this popup closed.' : 'Auto-follow is off.';
   $('auto-like-x').checked = state.config.autoLikeX === true;
   $('auto-like-x').disabled = false;
-  $('auto-like-status').textContent = state.config.autoLikeX === true ? 'Auto-like is on for X · 100 px radius · Works with this popup closed.' : 'Auto-like is off.';
+  $('auto-like-status').textContent = state.config.autoLikeX === true ? 'Auto-like is on for X · Hover over a Like button · Works with this popup closed.' : 'Auto-like is off.';
   $('auto-highlight').checked = state.config.autoHighlight !== false;
   $('auto-highlight').disabled = false;
   $('page-status').textContent = state.config.autoHighlight !== false ? 'Automatic highlighting is on for all web pages.' : 'Automatic highlighting is off.';
@@ -147,4 +150,18 @@ $('auto-like-x').addEventListener('change', async () => {
     drawProjectControls();
     $('auto-like-status').textContent = error.message;
   } finally { $('auto-like-x').disabled = false; }
+});
+
+$('auto-follow-x').addEventListener('change', async () => {
+  $('auto-follow-x').disabled = true;
+  const previous = state.config.autoFollowX;
+  try {
+    state.config.autoFollowX = $('auto-follow-x').checked;
+    await request({ type: 'saveConfig', config: state.config });
+    drawProjectControls();
+  } catch (error) {
+    state.config.autoFollowX = previous;
+    drawProjectControls();
+    $('auto-follow-status').textContent = error.message;
+  } finally { $('auto-follow-x').disabled = false; }
 });

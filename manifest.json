@@ -58,7 +58,8 @@
         "https://twitter.com/*"
       ],
       "js": [
-        "auto-like-content.js"
+        "auto-like-content.js",
+        "auto-follow-content.js"
       ],
       "run_at": "document_idle"
     }
