@@ -44,7 +44,16 @@
     }
     return { entries, errors, duplicates };
   }
-  const api = { PLATFORMS, profile, parse };
+  function requirements(value = {}) {
+    const result = {};
+    for (const field of ['basedIn', 'connectedVia']) {
+      const text = value[field] ?? '';
+      if (typeof text !== 'string' || text.length > 100 || /[\r\n]/.test(text)) throw new Error('Use at most 100 characters for each follow requirement.');
+      result[field] = text.trim().replace(/\s+/g, ' ');
+    }
+    return result;
+  }
+  const api = { PLATFORMS, profile, parse, requirements };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.HighlightextFollows = api;
 })(globalThis);

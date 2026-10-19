@@ -41,3 +41,36 @@ test('X action refuses wrong profiles and dialogs, avoids unfollowing, and confi
   following = false; buttons[0].click = () => { clicked++; };
   assert.equal((await followXProfile('alice')).status, 'blocked'); assert.equal(clicked, 2);
 });
+
+test('location check opens the account About link and matches only labeled account fields', async t => {
+  const { checkXRequirements } = require('../follow-action');
+  const original = { location: global.location, document: global.document, setTimeout: global.setTimeout };
+  t.after(() => Object.assign(global, original));
+  global.location = { hostname: 'x.com', origin: 'https://x.com', href: 'https://x.com/alice', pathname: '/alice' };
+  global.setTimeout = fn => fn();
+  let country = 'United States', source = 'United States App Store', available = true, heading = true, opened = 0;
+  const link = { href: 'https://x.com/alice/about', click() { opened++; global.location.pathname = '/alice/about'; } };
+  const main = { querySelector: () => ({}), querySelectorAll(selector) {
+    if (selector === 'a[href]') return available ? [link] : [];
+    if (selector.includes('heading')) return heading ? [{ innerText: 'About this account' }] : [];
+    return [
+      { innerText: 'Account based in', parentElement: { innerText: `Account based in\n${country}` } },
+      { innerText: 'Connected via', parentElement: { innerText: `Connected via\n${source}` } }
+    ];
+  } };
+  global.document = { querySelector: selector => selector.includes('primaryColumn') ? main : null };
+  const requirements = { basedIn: 'United States', connectedVia: 'United States App Store' };
+  const check = async () => { global.location.pathname = '/alice'; return checkXRequirements('alice', requirements); };
+  assert.equal((await check()).status, 'matched');
+  assert.equal(opened, 1);
+  country = 'India'; assert.equal((await check()).status, 'skipped');
+  country = 'United States'; source = 'United States Android App';
+  assert.equal((await check()).status, 'skipped');
+  source = '  UNITED STATES   App Store '; assert.equal((await check()).status, 'matched');
+  country = ''; assert.equal((await check()).status, 'blocked');
+  country = 'United States'; heading = false;
+  assert.equal((await check()).status, 'blocked');
+  heading = true; available = false;
+  assert.equal((await check()).status, 'blocked');
+  assert.equal((await checkXRequirements('bob', requirements)).status, 'blocked');
+});

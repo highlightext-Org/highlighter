@@ -170,3 +170,39 @@ test('follow queues validate and deduplicate imports, persist outcomes, and isol
   const denied = await app.send({ type: 'follow:list', projectId: 'default' }, sender);
   assert.match(denied.error, /Open the extension/);
 });
+
+test('automatic highlighting defaults on, persists off, and exposes only page settings', async () => {
+  const app = setup();
+  const sender = { tab: { id: 5 }, url: 'https://example.com/' };
+  const initial = await app.send({ type: 'hext:settings' }, sender);
+  assert.equal(initial.enabled, true);
+  assert.equal(initial.projectId, 'default');
+  assert.equal(initial.config, undefined);
+  assert.equal(app.downloads(), 1);
+  const { config } = await app.send({ type: 'getState' });
+  config.autoHighlight = false;
+  assert.equal((await app.send({ type: 'saveConfig', config })).ok, true);
+  assert.equal((await app.send({ type: 'hext:settings' }, sender)).enabled, false);
+  const restarted = setup(); Object.assign(restarted.stored, structuredClone(app.stored));
+  assert.equal((await restarted.send({ type: 'hext:settings' }, sender)).enabled, false);
+  assert.equal(restarted.downloads(), 0);
+  config.autoHighlight = true;
+  assert.equal((await app.send({ type: 'saveConfig', config })).ok, true);
+  assert.equal((await app.send({ type: 'hext:settings' }, sender)).enabled, true);
+});
+
+test('follow requirements persist by project, validate before saving, and default to optional', async () => {
+  const app = setup();
+  const { config } = await app.send({ type: 'getState' });
+  config.projects.other = { name: 'Other', rules: [], options: {} };
+  await app.send({ type: 'saveConfig', config });
+  const send = (type, extra = {}) => app.send({ type: `follow:${type}`, projectId: 'default', ...extra });
+  assert.deepEqual((await send('list')).requirements, { basedIn: '', connectedVia: '' });
+  await send('requirements', { requirements: { basedIn: ' United States ', connectedVia: 'United States App Store' } });
+  assert.equal((await send('list')).requirements.basedIn, 'United States');
+  assert.equal((await app.send({ type: 'follow:list', projectId: 'other' })).requirements.basedIn, '');
+  const restarted = setup(); Object.assign(restarted.stored, structuredClone(app.stored));
+  assert.equal((await restarted.send({ type: 'follow:list', projectId: 'default' })).requirements.connectedVia, 'United States App Store');
+  assert.match((await send('requirements', { requirements: { basedIn: 'x'.repeat(101) } })).error, /100 characters/);
+  assert.equal((await send('list')).requirements.basedIn, 'United States');
+});

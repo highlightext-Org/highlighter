@@ -22,7 +22,7 @@ test('both packages boot and load terms in their browser background environments
       const manifest = JSON.parse(await readFile(path.join(destination, 'manifest.json'), 'utf8'));
       assert.equal(manifest.manifest_version, 3);
       assert.deepEqual(manifest.permissions, browser === 'chrome' ? ['storage', 'activeTab', 'scripting', 'alarms', 'offscreen', 'sidePanel'] : ['storage', 'activeTab', 'scripting', 'alarms']);
-      assert.deepEqual(manifest.content_scripts[0].js, ['timeline.js', 'timeline-content.js']);
+      assert.deepEqual(manifest.content_scripts[1].js, ['timeline.js', 'timeline-content.js']);
       assert(files.includes('timeline.js') && files.includes('timeline-content.js'));
       for (const asset of ['follows.js', 'follow.html', 'follow.js', 'follow-action.js', 'follow.css']) assert(files.includes(asset));
       for (const match of manifest.content_scripts[0].matches) assert(manifest.host_permissions.includes(match));

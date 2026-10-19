@@ -12,20 +12,39 @@
     "sidePanel"
   ],
   "host_permissions": [
-    "https://highlightext-org.github.io/words/master.json",
-    "https://x.com/*",
-    "https://twitter.com/*",
-    "https://www.instagram.com/*",
-    "https://instagram.com/*",
-    "https://www.tiktok.com/*",
-    "https://tiktok.com/*"
+    "http://*/*",
+    "https://*/*"
   ],
-  "content_scripts": [{
-    "matches": ["https://x.com/*", "https://twitter.com/*", "https://www.instagram.com/*", "https://instagram.com/*", "https://www.tiktok.com/*", "https://tiktok.com/*"],
-    "js": ["timeline.js", "timeline-content.js"],
-    "run_at": "document_idle"
-  }],
-  "side_panel": { "default_path": "popup.html?sidebar=1" },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://x.com/*",
+        "https://twitter.com/*",
+        "https://www.instagram.com/*",
+        "https://instagram.com/*",
+        "https://www.tiktok.com/*",
+        "https://tiktok.com/*"
+      ],
+      "js": [
+        "timeline.js",
+        "timeline-content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "side_panel": {
+    "default_path": "popup.html?sidebar=1"
+  },
   "background": {
     "service_worker": "background.js"
   },

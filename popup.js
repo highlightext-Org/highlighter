@@ -31,34 +31,21 @@ async function load(force = false) {
     state = await request({ type: 'loadTerms', force });
     drawProjectControls();
     await loadTimeline();
-    $('highlight-page').disabled = false;
     $('status').textContent = `${state.terms.length.toLocaleString()} active rules · Last sync: ${state.updatedAt ? new Date(state.updatedAt).toLocaleString() : 'never'}${state.syncError ? ` · Download error: ${state.syncError}` : ''}${state.definitionErrors?.length ? ` · ${state.definitionErrors.length} invalid source rules skipped` : ''}`;
     await render();
   } catch (error) { $('status').textContent = error.message; }
   finally { $('refresh').disabled = false; }
 }
 function drawProjectControls() {
+  $('auto-highlight').checked = state.config.autoHighlight !== false;
+  $('auto-highlight').disabled = false;
+  $('page-status').textContent = state.config.autoHighlight !== false ? 'Automatic highlighting is on for all web pages.' : 'Automatic highlighting is off.';
   $('project').replaceChildren(...Object.entries(state.config.projects).map(([id, item]) => { const option = document.createElement('option'); option.value = id; option.textContent = item.name; return option; }));
   $('project').value = state.config.activeProject;
   Object.assign(options, { keyword: true, handle: true, wallet: true, url: true, wholeWords: true, caseSensitive: false }, project().options);
   document.querySelectorAll('[data-option]').forEach(input => { input.checked = options[input.dataset.option]; });
 }
 async function saveOptions() { project().options = { ...options }; await request({ type: 'saveConfig', config: state.config }); await render(); }
-async function pageAction(clear) {
-  $('page-status').textContent = '';
-  try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab?.id || !/^https?:\/\//.test(tab.url || '')) throw new Error('Open a regular web page first.');
-    if (clear) {
-      try { await chrome.tabs.sendMessage(tab.id, { type: 'hext:clear' }); } catch { /* Already clear. */ }
-      $('page-status').textContent = 'Page highlights cleared.'; return;
-    }
-    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] });
-    const result = await chrome.tabs.sendMessage(tab.id, { type: 'hext:highlight', projectId: state.config.activeProject });
-    if (result.error) throw new Error(result.error);
-    $('page-status').textContent = `${result.count.toLocaleString()} matches · Live updates on${result.capped ? ' · scan limit reached' : ''}.`;
-  } catch (error) { $('page-status').textContent = error.message; }
-}
 $('text').maxLength = 20000;
 $('text').addEventListener('input', () => {
   clearTimeout(renderTimer); renderGeneration++; renderTimer = setTimeout(render, 250);
@@ -72,8 +59,19 @@ $('project').addEventListener('change', async () => {
 });
 $('manage').addEventListener('click', () => chrome.runtime.openOptionsPage());
 $('refresh').addEventListener('click', () => load(true));
-$('highlight-page').addEventListener('click', () => pageAction(false));
-$('clear-page').addEventListener('click', () => pageAction(true));
+$('auto-highlight').addEventListener('change', async () => {
+  $('auto-highlight').disabled = true;
+  const previous = state.config.autoHighlight;
+  try {
+    state.config.autoHighlight = $('auto-highlight').checked;
+    await request({ type: 'saveConfig', config: state.config });
+    drawProjectControls();
+  } catch (error) {
+    state.config.autoHighlight = previous;
+    drawProjectControls();
+    $('page-status').textContent = error.message;
+  } finally { $('auto-highlight').disabled = false; }
+});
 function timelineProject() { return state?.config.activeProject; }
 async function loadTimeline() {
   if (!timelineProject()) return;

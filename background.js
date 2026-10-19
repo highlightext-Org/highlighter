@@ -4,7 +4,7 @@ const SOURCE = 'https://highlightext-org.github.io/words/master.json';
 // Bump when parsing changes so previously normalized caches are downloaded again.
 const DEFINITIONS_VERSION = 2;
 let pending, writeQueue = Promise.resolve();
-const defaultConfig = () => ({ activeProject: 'default', autoRefresh: false, localRules: [], projects: { default: { name: 'Default', rules: [], overrides: {}, disabledGroups: [], options: { wholeWords: true, caseSensitive: false }, recordMatches: false } } });
+const defaultConfig = () => ({ activeProject: 'default', autoHighlight: true, autoRefresh: false, localRules: [], projects: { default: { name: 'Default', rules: [], overrides: {}, disabledGroups: [], options: { wholeWords: true, caseSensitive: false }, recordMatches: false } } });
 async function getConfig() {
   const { config, options } = await chrome.storage.local.get(['config', 'options']);
   if (config) return config;
@@ -102,13 +102,22 @@ async function handle(message, sender) {
       catch (error) { return { ok: false, error: error.message, ...await state() }; }
     }
     case 'getState': return state();
+    case 'hext:settings': {
+      const config = await getConfig();
+      const enabled = config.autoHighlight !== false;
+      if (enabled) await loadTerms().catch(() => {}); // Keep using cached/local rules offline.
+      return { enabled, projectId: config.activeProject };
+    }
     case 'saveConfig': return mutate(async () => {
+      const previous = await getConfig();
       const config = validateConfig(message.config), cached = await cachedDefinitions();
       for (const project of Object.values(config.projects)) {
         const rules = HighlightextRules.resolveRules(cached.remoteRules, config.localRules, project);
         if (rules.filter(rule => rule.type === 'regex').length > Highlightext.MAX_REGEX_RULES) throw new Error(`Enable at most ${Highlightext.MAX_REGEX_RULES} regex rules per project.`);
       }
-      await chrome.storage.local.set({ config }); await configureAlarms(config); return { ok: true };
+      await chrome.storage.local.set({ config }); await configureAlarms(config);
+      if (config.autoHighlight !== false && previous.autoHighlight === false) await attachHighlights();
+      return { ok: true };
     });
     case 'scan': return scan(message, sender);
     case 'getRecords': { const { records = [] } = await chrome.storage.local.get('records'); return { records: records.filter(record => record.projectId === message.projectId) }; }
@@ -119,13 +128,21 @@ async function handle(message, sender) {
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
   if (message.target === 'match-host') return;
   // Injected scripts can scan a page; configuration and exports belong to extension UI.
-  if (sender.tab && !sender.url?.startsWith(chrome.runtime.getURL('')) && !['scan', 'timeline:capture', 'timeline:status'].includes(message.type)) { respond({ error: 'Open the extension to manage rules.' }); return; }
+  if (sender.tab && !sender.url?.startsWith(chrome.runtime.getURL('')) && !['scan', 'hext:settings', 'timeline:capture', 'timeline:status'].includes(message.type)) { respond({ error: 'Open the extension to manage rules.' }); return; }
   handle(message, sender).then(respond, error => respond({ error: error.message }));
   return true;
 });
 chrome.alarms?.onAlarm.addListener(alarm => { if (alarm.name === 'definitions-sync') loadTerms(true).catch(() => {}); });
 chrome.runtime.onStartup?.addListener(() => getConfig().then(configureAlarms));
-chrome.runtime.onInstalled?.addListener(() => getConfig().then(configureAlarms));
+async function attachHighlights() {
+  const tabs = await chrome.tabs.query({ url: ['http://*/*', 'https://*/*'] });
+  await Promise.allSettled(tabs.map(tab => chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] })));
+}
+chrome.runtime.onInstalled?.addListener(async () => {
+  const config = await getConfig();
+  await configureAlarms(config);
+  if (config.autoHighlight !== false) await attachHighlights();
+});
 
 async function timelineState(projectId) {
   const { timelineSession = null, timelineRecords = [], timelineDropped = 0 } = await chrome.storage.local.get(['timelineSession', 'timelineRecords', 'timelineDropped']);
@@ -204,8 +221,16 @@ async function handleFollows(message) {
     if (!Object.hasOwn(config.projects, message.projectId)) throw new Error('Select an existing project.');
     const { followQueues = {} } = await chrome.storage.local.get('followQueues');
     let entries = Object.hasOwn(followQueues, message.projectId) ? followQueues[message.projectId] : [];
+    const { followRequirements = {} } = await chrome.storage.local.get('followRequirements');
+    const requirements = Object.hasOwn(followRequirements, message.projectId) ? followRequirements[message.projectId] : HighlightextFollows.requirements();
     switch (message.type) {
-      case 'follow:list': return { entries };
+      case 'follow:list': return { entries, requirements };
+      case 'follow:requirements': {
+        const next = HighlightextFollows.requirements(message.requirements);
+        Object.defineProperty(followRequirements, message.projectId, { value: next, enumerable: true, configurable: true, writable: true });
+        await chrome.storage.local.set({ followRequirements });
+        return { entries, requirements: next };
+      }
       case 'follow:add': {
         const parsed = HighlightextFollows.parse(message.text, message.platform);
         const existing = new Set(entries.map(entry => entry.key));

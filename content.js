@@ -22,7 +22,7 @@
   }
   function schedule() {
     dirty = true;
-    if (!timer && !running) timer = setTimeout(() => { timer = null; scan().catch(error => status(error.message)); }, 1000);
+    if (!timer && !running) timer = setTimeout(() => { timer = null; scan().catch(error => { if (observer) status(error.message); }); }, 1000);
   }
   async function scan() {
     if (running) { schedule(); return { count: 0, queued: true }; }
@@ -73,16 +73,15 @@
       return { count, capped: result.capped || truncated };
     } finally { running = false; if (dirty && observer) schedule(); }
   }
-  chrome.runtime.onMessage.addListener((message, sender, respond) => {
-    if (message.type === 'hext:clear') {
-      generation++; clearTimeout(timer); timer = null; dirty = false;
-      observer?.disconnect(); observer = null; removeHighlights(); badge?.remove(); badge = null;
-      respond({ ok: true }); return;
-    }
-    if (message.type !== 'hext:highlight') return;
-    if (!globalThis.CSS?.highlights || typeof Highlight === 'undefined') { respond({ error: 'Use Chrome, Edge, or Firefox 140 or later for page highlighting.' }); return; }
-    if (!document.body) { respond({ error: 'This page has no text body.' }); return; }
-    generation++; projectId = message.projectId; observer?.disconnect();
+  function stop() {
+    generation++; clearTimeout(timer); timer = null; dirty = false;
+    observer?.disconnect(); observer = null; removeHighlights(); badge?.remove(); badge = null;
+  }
+  async function start(id) {
+    stop();
+    if (!globalThis.CSS?.highlights || typeof Highlight === 'undefined') throw new Error('Use Chrome, Edge, or Firefox 140 or later for page highlighting.');
+    if (!document.body) throw new Error('This page has no text body.');
+    projectId = id;
     observer = new MutationObserver(changes => {
       if (changes.some(change => {
         const target = change.target.nodeType === 1 ? change.target : change.target.parentElement;
@@ -91,7 +90,32 @@
       })) schedule();
     });
     observer.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['hidden', 'aria-hidden'] });
-    scan().then(respond, error => { status(error.message); respond({ error: error.message }); });
+    return scan();
+  }
+  let settingsGeneration = 0;
+  async function syncSettings() {
+    const token = ++settingsGeneration;
+    stop();
+    try {
+      const settings = await chrome.runtime.sendMessage({ type: 'hext:settings' });
+      if (token !== settingsGeneration) return;
+      if (settings.error) throw new Error(settings.error);
+      if (settings.enabled) await start(settings.projectId);
+    } catch (error) { if (token === settingsGeneration && observer) status(error.message); }
+  }
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local') return;
+    if (changes.config) syncSettings();
+    else if (changes.remoteRules && observer) { generation++; schedule(); }
+  });
+  chrome.runtime.onMessage.addListener((message, sender, respond) => {
+    if (message.type === 'hext:clear') {
+      settingsGeneration++; stop(); respond({ ok: true }); return;
+    }
+    if (message.type !== 'hext:highlight') return;
+    settingsGeneration++;
+    start(message.projectId).then(respond, error => { if (observer) status(error.message); respond({ error: error.message }); });
     return true;
   });
+  syncSettings();
 })();

@@ -80,7 +80,8 @@ are followed by the automated test suite.
 11. Regex syntax validation before activation; invalid remote rules are skipped
     with visible diagnostics, and invalid imports are rejected before saving.
 12. Highlight rendered posts, comments, timelines, public biographies, and other
-    ordinary page text after clicking **Highlight this page**. Watch live changes.
+    ordinary page text automatically while browsing, controlled by the persistent
+    **Automatically highlight pages** toggle (on by default).
 13. Optional local records containing matched text, rule ID, category, platform,
     source URL, timestamp, and project ID.
 14. Import and export definitions as JSON or CSV; export records as JSON or CSV.
@@ -139,9 +140,10 @@ Disabling a rule in the table creates a project override. Removing an override
 reveals the definition from the next lower source, if one exists.
 
 The popup's category switches, whole-word setting, and case setting belong to the
-selected project. Reapply **Highlight this page** to switch an existing page to a
-different project. Already enabled pages stay attached to their original project;
-their next live scan reads that project's current settings.
+selected project. Changing projects, rules, or options updates pages automatically.
+The **Automatically highlight pages** toggle persists across browser restarts.
+Turning it off clears highlights across tabs and stops scanning; turning it on
+activates existing tabs and future pages.
 
 Enable **Save page matches locally** per project to record evidence. Recording is
 off by default and applies only to pages, not pasted popup drafts. The latest
@@ -263,7 +265,7 @@ of every project's source layers. Imports are limited to 8 MiB.
 
 CSS Custom Highlight ranges preserve text nodes, links, selection, and editable
 content. Phrases can span inline elements in the same block; regex cannot cross
-block boundaries or truncated chunks. Navigation/reload requires enabling again.
+block boundaries or truncated chunks. Highlighting resumes after navigation/reload when the toggle is on.
 Browser pages, extension stores, PDFs, canvas text, shadow roots, and embedded
 frames are unsupported. Native input/textarea range highlights are unsupported;
 use the popup preview or contenteditable page text. Hidden/aria-hidden elements,
@@ -273,13 +275,14 @@ crawl profiles, load comments, or fetch private content.
 
 ## Privacy and permissions
 
-`activeTab` and `scripting` enable page highlighting after your click. `storage`
+`scripting` attaches highlighting to already open tabs when enabled. `storage`
 keeps definitions, settings, and optional match and timeline records. `alarms` enables daily
 checks when selected. Chrome's `offscreen` permission hosts the worker; Firefox
 does not request that permission. Chrome's `sidePanel` permission enables the
-persistent sidebar. Website permissions cover the published definitions host
-and X/Twitter, Instagram, and TikTok so recording can continue across navigation
-while the popup is closed. Recording scripts remain idle until recording starts.
+persistent sidebar. Website permissions cover HTTP and HTTPS pages so highlighting continues across
+navigation with the popup closed. Highlighting scripts remain idle when switched
+off. Timeline recording remains limited to supported social sites and stays idle
+until recording starts.
 After updating, accept the added site permissions if the browser requests them.
 If Firefox blocks its download, allow the word-list
 host in the extension's website permissions in `about:addons`.
@@ -307,8 +310,8 @@ terminating catastrophic regex execution in a real worker thread.
 Browser smoke checklist for both builds: sync definitions, create a project,
 add a regex, preview it, import/export rules, enable optional recording, highlight
 an ordinary page with inline and editable content, mutate its text, and inspect
-records. Disable a group or individual rule, reapply highlighting, and clear the
-page. Test offline refresh after one successful download and verify the cache and
+records. Disable a group or individual rule and verify pages update automatically. Toggle
+highlighting off to clear all tabs, then on to resume. Test offline refresh after one successful download and verify the cache and
 last successful timestamp remain. Confirm a slow pattern stops without hanging
 the page and that disabling it allows matching again.
 
@@ -325,3 +328,24 @@ software license does not grant rights in branding, third-party material,
 personal information, or generated datasets. Test suitability, verify results,
 and keep backups. Liability exclusions apply only to the extent permitted by law.
 Paid plans and custom services are separate from Community software rights.
+
+## X follow location requirements
+
+In **Follow handles**, set **Account based in** and/or **Connected via** before
+starting the X queue. **Use US + US App Store** fills `United States` and
+`United States App Store`; either field can also be used alone. Requirements save
+locally per project and apply to pending X accounts when the queue starts. Leave
+both fields blank to disable the check. Other platforms remain manual.
+
+With requirements enabled, the queue opens the profile's **About this account**
+link, reads the labeled fields, and returns to the same profile before following.
+Every configured value must match exactly, ignoring case and extra whitespace.
+Nonmatching accounts are marked skipped with the observed values. Missing links,
+unreadable details, unexpected navigation, and login prompts block the account
+and stop the run for review. Requeue a skipped or blocked account to check it again.
+Currently the reader supports X's English labels and the profile `/about` page;
+unrecognized layouts stop for review.
+
+These checks use X's displayed account information, not verified physical location.
+X explains its public account-location information in its
+[country settings help](https://help.x.com/en/managing-your-account/how-to-change-country-settings).
