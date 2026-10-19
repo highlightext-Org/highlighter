@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "Highlightext",
+  "version": "0.1.0",
+  "description": "Highlight matching keywords, handles, wallets, and profile URLs from the Highlightext word list.",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "host_permissions": ["https://highlightext-org.github.io/words/master.json"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_title": "Highlightext", "default_popup": "popup.html" }
+}

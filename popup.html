@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Highlightext</title><link rel="stylesheet" href="popup.css"></head>
+<body>
+  <header><div class="logo">H<span>✦</span></div><div><h1>Highlightext</h1><p>Find the words that matter.</p></div><button id="refresh" class="quiet" title="Refresh word list" aria-label="Refresh word list">↻</button></header>
+  <div id="status" role="status">Loading your word list…</div>
+  <fieldset><legend>Match types</legend><label><input type="checkbox" data-option="keyword" checked><i class="keyword"></i>Keywords</label><label><input type="checkbox" data-option="handle" checked><i class="handle"></i>Handles</label><label><input type="checkbox" data-option="wallet" checked><i class="wallet"></i>Wallets</label><label><input type="checkbox" data-option="url" checked><i class="url"></i>URLs</label></fieldset>
+  <div class="editor-heading"><label for="text">Try your text</label><span id="count" aria-live="polite">0 matches</span></div>
+  <div class="editor"><div id="highlights" aria-hidden="true"></div><textarea id="text" spellcheck="false" placeholder="Type or paste text here. Matches appear as you type."></textarea></div>
+  <div class="options"><label><input type="checkbox" data-option="wholeWords" checked>Whole words</label><label><input type="checkbox" data-option="caseSensitive">Match case</label></div>
+  <button id="highlight-page" class="primary" disabled>Highlight this page <span>↗</span></button>
+  <button id="clear-page" class="secondary">Clear page highlights</button>
+  <p id="page-status" role="status"></p>
+  <footer>Text stays in your browser. <a href="https://highlightext-org.github.io/words/master.json" target="_blank" rel="noopener">View word list ↗</a></footer>
+  <script src="matcher.js"></script><script src="popup.js"></script>
+</body></html>
