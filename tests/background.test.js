@@ -25,6 +25,7 @@ function setup(data = { rules: [{ id: 'risk', text: 'risk', category: 'QA' }] })
       } }
     }
   });
+  vm.runInContext(fs.readFileSync(require.resolve('../ai'), 'utf8'), context);
   vm.runInContext(fs.readFileSync(require.resolve('../background'), 'utf8'), context);
   return { stored, alarms, downloads: () => downloads, offline: () => { fail = true; }, failTimelineWrites: () => { failTimelineWrites = true; }, send: (message, sender = {}) => new Promise(resolve => listener(message, sender, resolve)) };
 }
@@ -297,4 +298,21 @@ test('hover auto-follow defaults off and persists independently of likes and hig
   config.autoFollowX = false;
   assert.equal((await app.send({ type: 'saveConfig', config })).ok, true);
   assert.equal((await app.send({ type: 'getState' })).config.autoFollowX, false);
+});
+
+test('AI credentials and paid corrections are restricted to extension UI and excluded from normal state', async () => {
+  const app = setup();
+  for (const sender of [{}, { tab: { id: 5 }, url: 'https://x.com/test' }, { url: 'moz-extension://test/popup.html.evil' }]) {
+    for (const type of ['ai:settings', 'ai:save', 'ai:correct']) {
+      assert.match((await app.send({ type }, sender)).error, /Open the extension/);
+    }
+  }
+  const sender = { url: 'moz-extension://test/popup.html?sidebar=1' };
+  const result = await app.send({ type: 'ai:save', provider: 'openai', apiKey: 'test-secret-key' }, sender);
+  assert.equal(result.providers.openai.hasKey, true);
+  assert(!JSON.stringify(result).includes('test-secret-key'));
+  const state = await app.send({ type: 'getState' });
+  assert(!JSON.stringify(state).includes('test-secret-key'));
+  assert.equal(state.config.aiSettings, undefined);
+  assert.equal((await app.send({ type: 'ai:settings' }, sender)).providers.openai.hasKey, true);
 });

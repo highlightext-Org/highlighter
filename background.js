@@ -1,5 +1,5 @@
 // Firefox preloads these scripts in its event page; Chrome uses a service worker.
-if (typeof importScripts === 'function') importScripts('definitions.js', 'matcher.js', 'timeline.js', 'follows.js', 'chrome-host.js');
+if (typeof importScripts === 'function') importScripts('ai.js', 'definitions.js', 'matcher.js', 'timeline.js', 'follows.js', 'chrome-host.js');
 const SOURCE = 'https://highlightext-org.github.io/words/master.json';
 // Bump when parsing changes so previously normalized caches are downloaded again.
 const DEFINITIONS_VERSION = 3;
@@ -132,11 +132,18 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
   if (message.target === 'match-host') return;
   // Injected scripts can scan a page; configuration and exports belong to extension UI.
   if (sender.tab && !sender.url?.startsWith(chrome.runtime.getURL('')) && !['scan', 'hext:settings', 'timeline:capture', 'timeline:status', 'handles:capture', 'handles:status'].includes(message.type)) { respond({ error: 'Open the extension to manage rules.' }); return; }
+  if (message.type?.startsWith('ai:')) {
+    // Only our UI can manage credentials or incur paid API calls.
+    if (![chrome.runtime.getURL('popup.html'), chrome.runtime.getURL('options.html')].some(url => sender.url?.split('?')[0] === url)) {
+      respond({ error: 'Open the extension to use AI correction.' }); return;
+    }
+    HighlightextAI.handle(message).then(respond, error => respond({ error: error.message }));
+    return true;
+  }
   handle(message, sender).then(respond, error => respond({ error: error.message }));
   return true;
 });
 chrome.alarms?.onAlarm.addListener(alarm => { if (alarm.name === 'definitions-sync') loadTerms(true).catch(() => {}); });
-chrome.runtime.onStartup?.addListener(() => getConfig().then(configureAlarms));
 async function attachAutoLike() {
   const tabs = await chrome.tabs.query({ url: ['https://x.com/*', 'https://twitter.com/*'] });
   await Promise.allSettled(tabs.map(tab => chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['auto-like-content.js'] })));
@@ -149,13 +156,28 @@ async function attachHighlights() {
   const tabs = await chrome.tabs.query({ url: ['http://*/*', 'https://*/*'] });
   await Promise.allSettled(tabs.map(tab => chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] })));
 }
-chrome.runtime.onInstalled?.addListener(async () => {
-  const config = await getConfig();
-  await configureAlarms(config);
-  if (config.autoHighlight !== false) await attachHighlights();
-  if (config.autoLikeX === true) await attachAutoLike();
-  if (config.autoFollowX === true) await attachAutoFollow();
-});
+let restoringFeatures;
+function restoreEnabledFeatures() {
+  // Backgrounds also restart on reload/enable and service-worker wake, without
+  // an install event. Reattach to existing tabs using the saved choices.
+  if (restoringFeatures) return restoringFeatures;
+  restoringFeatures = (async () => {
+    const config = await getConfig();
+    await Promise.allSettled([
+      configureAlarms(config),
+      ...(config.autoHighlight !== false ? [attachHighlights()] : []),
+      ...(config.autoLikeX === true ? [attachAutoLike()] : []),
+      ...(config.autoFollowX === true ? [attachAutoFollow()] : [])
+    ]);
+  })().finally(() => { restoringFeatures = null; });
+  return restoringFeatures;
+}
+const restoreFeatures = () => restoreEnabledFeatures().catch(() => {});
+chrome.runtime.onInstalled?.addListener(restoreFeatures);
+chrome.runtime.onStartup?.addListener(restoreFeatures);
+chrome.permissions?.onAdded?.addListener(restoreFeatures);
+restoreFeatures();
+
 
 async function timelineState(projectId) {
   const { timelineSession = null, timelineRecords = [], timelineDropped = 0 } = await chrome.storage.local.get(['timelineSession', 'timelineRecords', 'timelineDropped']);

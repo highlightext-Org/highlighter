@@ -112,3 +112,29 @@ test('rechecks follow state before clicking and installation is idempotent', () 
   vm.runInContext(source, app.context);
   assert.equal(app.listeners.pointerover, over);
 });
+
+
+test('saved hover setting starts working immediately and reinjection resyncs it without duplicate listeners', async () => {
+  const app = setup();
+  app.startup({ autoFollowX: true }); await Promise.resolve();
+  const first = app.button(200, '101'); app.hover(first); app.flush();
+  assert.equal(first.clicks, 1);
+  app.leave(); app.enable(false);
+  const over = app.listeners.pointerover;
+  app.context.document.addEventListener = () => { throw new Error('Duplicate listener'); };
+  vm.runInContext(source, app.context);
+  assert.equal(app.listeners.pointerover, over);
+  app.startup({ autoFollowX: true }); await Promise.resolve();
+  const second = app.button(200, '102'); app.hover(second); app.flush();
+  assert.equal(second.clicks, 1);
+  app.leave(); app.hover(first); app.flush(); assert.equal(first.clicks, 1);
+});
+
+test('a stale reinjection read cannot undo a newer disabled setting', async () => {
+  const app = setup();
+  vm.runInContext(source, app.context);
+  app.enable(false);
+  app.startup({ autoFollowX: true }); await Promise.resolve();
+  const button = app.button(); app.hover(button); app.flush();
+  assert.equal(button.clicks, 0);
+});

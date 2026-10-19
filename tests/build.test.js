@@ -25,13 +25,14 @@ test('both packages boot and load terms in their browser background environments
       assert.deepEqual(manifest.content_scripts[1].js, ['timeline.js', 'timeline-content.js']);
       assert(files.includes('timeline.js') && files.includes('timeline-content.js'));
       assert.deepEqual(manifest.content_scripts[3].js, ['auto-like-content.js', 'auto-follow-content.js']);
-      for (const asset of ['auto-like-content.js', 'auto-follow-content.js', 'handle-capture-ui.js', 'handle-capture-content.js', 'site-access.js', 'follows.js', 'follow.html', 'follow.js', 'follow-action.js', 'follow.css']) assert(files.includes(asset));
+      for (const asset of ['ai.js', 'ai-ui.js', 'auto-like-content.js', 'auto-follow-content.js', 'handle-capture-ui.js', 'handle-capture-content.js', 'site-access.js', 'follows.js', 'follow.html', 'follow.js', 'follow-action.js', 'follow.css']) assert(files.includes(asset));
       for (const match of manifest.content_scripts[0].matches) assert(manifest.host_permissions.includes(match));
       assert.deepEqual(manifest.content_scripts[2].js, ['follows.js', 'handle-capture-content.js']);
       if (browser === 'firefox') {
         assert.equal(manifest.background.service_worker, undefined);
         assert.equal(manifest.browser_specific_settings.gecko.strict_min_version, '140.0');
         assert.deepEqual(manifest.browser_specific_settings.gecko.data_collection_permissions.required, ['none']);
+        assert.deepEqual(manifest.browser_specific_settings.gecko.data_collection_permissions.optional, ['authenticationInfo', 'personalCommunications']);
         assert.equal(manifest.side_panel, undefined);
         assert.equal(manifest.sidebar_action.default_panel, 'popup.html?sidebar=1');
       } else {

@@ -1,6 +1,7 @@
 {
   "background": {
     "scripts": [
+      "ai.js",
       "definitions.js",
       "matcher.js",
       "timeline.js",
@@ -21,6 +22,10 @@
       "data_collection_permissions": {
         "required": [
           "none"
+        ],
+        "optional": [
+          "authenticationInfo",
+          "personalCommunications"
         ]
       }
     },

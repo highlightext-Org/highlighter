@@ -34,6 +34,44 @@ Zip each build directory's contents with `manifest.json` at the archive root for
 store submission. Build outputs contain extension assets and license files only;
 building does not sign or publish anything.
 
+## AI spelling and grammar correction
+
+In the popup or sidebar, open **AI settings · API key & provider** below the
+text editor. Choose OpenAI or Anthropic, paste your own API key, and click
+**Save AI settings**. Each provider keeps a separate key and model ID; leaving
+the key blank keeps the saved key. **Remove saved key** deletes that provider's
+key. Defaults are `gpt-4.1-mini` and `claude-haiku-4-5`; you can enter another
+model ID that supports the provider's structured JSON output.
+
+Click **Correct text** to proofread the editor (up to 20,000 characters), then
+review the result. **Undo correction** restores the original until you edit it.
+Edits made during a request are preserved instead of being overwritten. This
+feature acts only on the extension's editor. It does not scan or change website
+input fields. Nothing is submitted or posted to a social account.
+
+Keys are stored in local extension storage without encryption, separately from
+project config and exports. Settings responses expose only whether a key exists.
+The selected provider receives your editor text and API authentication only when
+you click Correct text; API usage is billed by that provider. A ChatGPT or Claude
+chat subscription is separate from API access. Firefox asks for optional data
+consent before sending a correction. Website access must allow the API host.
+
+Both adapters request the same JSON Schema: `{"corrected_text":"..."}`, with a
+required string and no extra properties. OpenAI uses Responses `text.format`
+with `strict: true` and `store: false`; Anthropic uses Messages
+`output_config.format`. The extension also validates the returned JSON locally.
+Refusals, truncation, invalid JSON, network failures, and API errors leave the
+editor unchanged. No automatic retries are made. Tests mock both providers;
+no paid API calls are made during testing.
+
+Protocol references: [OpenAI structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs)
+and [Anthropic structured outputs](https://platform.claude.com/docs/en/build-with-claude/structured-outputs).
+
+Saved highlighting, hover auto-like, and hover auto-follow choices are restored
+when the extension reloads, the browser starts, or website access is restored.
+Open tabs are reattached automatically; you do not need to toggle features off
+and on. Reattachment refreshes hover settings without duplicating listeners.
+
 ## Hover auto-like (X)
 
 Turn on **Auto-like on hover on X** in the popup or sidebar. It is off by

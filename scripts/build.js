@@ -3,7 +3,7 @@ const { copyFile, mkdir, readFile, rm, writeFile } = require('node:fs/promises')
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
-const files = ['auto-like-content.js', 'auto-follow-content.js', 'handle-capture-ui.js', 'handle-capture-content.js', 'site-access.js', 'background.js', 'content.js', 'matcher.js', 'popup.js', 'popup.html', 'popup.css', 'LICENSE', 'DISCLAIMER.md', 'definitions.js', 'chrome-host.js', 'worker-host.js', 'match-worker.js', 'offscreen.html', 'offscreen.js', 'options.html', 'options.js', 'options.css', 'timeline.js', 'timeline-content.js', 'sidebar.js', 'follows.js', 'follow.html', 'follow.css', 'follow.js', 'follow-action.js'];
+const files = ['ai.js', 'ai-ui.js', 'auto-like-content.js', 'auto-follow-content.js', 'handle-capture-ui.js', 'handle-capture-content.js', 'site-access.js', 'background.js', 'content.js', 'matcher.js', 'popup.js', 'popup.html', 'popup.css', 'LICENSE', 'DISCLAIMER.md', 'definitions.js', 'chrome-host.js', 'worker-host.js', 'match-worker.js', 'offscreen.html', 'offscreen.js', 'options.html', 'options.js', 'options.css', 'timeline.js', 'timeline-content.js', 'sidebar.js', 'follows.js', 'follow.html', 'follow.css', 'follow.js', 'follow-action.js'];
 
 async function build(target, outputRoot = path.join(root, 'dist')) {
   if (!['chrome', 'firefox'].includes(target)) throw new Error(`Unknown browser: ${target}. Use chrome or firefox.`);

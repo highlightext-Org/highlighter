@@ -1,6 +1,10 @@
 (() => {
   'use strict';
-  if (globalThis.__highlightextAutoLikeInstalled) return;
+  if (globalThis.__highlightextAutoLikeInstalled) {
+    // Re-injection restores saved settings without adding duplicate listeners.
+    if (typeof globalThis.__highlightextAutoLikeInstalled === 'function') globalThis.__highlightextAutoLikeInstalled();
+    return;
+  }
   // Keep site selectors and post identity separate for future platform adapters.
   const platforms = {
     'x.com': {
@@ -15,7 +19,7 @@
   platforms['twitter.com'] = platforms['x.com'];
   const platform = platforms[location.hostname];
   if (!platform) return;
-  globalThis.__highlightextAutoLikeInstalled = true;
+  globalThis.__highlightextAutoLikeInstalled = syncConfig;
   const attempted = new WeakSet(), posts = new Set();
   let enabled = false, frame = null, hovered = null, version = 0;
   function cancel() {
@@ -63,8 +67,11 @@
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes.config) update(changes.config.newValue);
   });
-  const initialVersion = version;
-  chrome.storage.local.get('config').then(({ config }) => {
-    if (version === initialVersion) update(config);
-  }).catch(() => {});
+  function syncConfig() {
+    const initialVersion = version;
+    return chrome.storage.local.get('config').then(({ config }) => {
+      if (version === initialVersion) update(config);
+    }).catch(() => {});
+  }
+  syncConfig();
 })();

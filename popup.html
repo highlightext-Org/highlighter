@@ -25,10 +25,22 @@
   <fieldset><legend>Match types</legend><label><input type="checkbox" data-option="keyword" checked><i class="keyword"></i>Keywords</label><label><input type="checkbox" data-option="handle" checked><i class="handle"></i>Handles</label><label><input type="checkbox" data-option="wallet" checked><i class="wallet"></i>Wallets</label><label><input type="checkbox" data-option="url" checked><i class="url"></i>URLs</label></fieldset>
   <div class="editor-heading"><label for="text">Try your text</label><span id="count" aria-live="polite">0 matches</span></div>
   <div class="editor"><div id="highlights" aria-hidden="true"></div><textarea id="text" spellcheck="false" placeholder="Type or paste text here. Matches appear as you type."></textarea></div>
+  <section class="ai-correction" aria-label="AI text correction">
+    <div class="timeline-actions"><button id="ai-correct">Correct text</button><button id="ai-undo" hidden>Undo correction</button></div>
+    <p id="ai-status" class="timeline-hint" role="status" aria-live="polite"></p>
+    <details id="ai-settings"><summary>AI settings · API key &amp; provider</summary>
+      <label for="ai-provider">Provider<select id="ai-provider"><option value="openai">OpenAI (ChatGPT)</option><option value="anthropic">Anthropic (Claude)</option></select></label>
+      <label for="ai-model">Model ID<input id="ai-model" maxlength="120" spellcheck="false" autocomplete="off"></label>
+      <label for="ai-key">API key<input id="ai-key" type="password" maxlength="512" autocomplete="off" spellcheck="false" placeholder="Paste your API key"></label>
+      <p id="ai-key-status" class="timeline-hint"></p>
+      <div class="timeline-actions"><button id="ai-save">Save AI settings</button><button id="ai-remove">Remove saved key</button></div>
+    </details>
+    <p class="timeline-hint">Correct text sends this editor’s text to your selected provider. API usage is billed by that provider. Keys are saved locally in this browser, without encryption, and are excluded from exports.</p>
+  </section>
   <div class="options"><label><input type="checkbox" data-option="wholeWords" checked>Whole words</label><label><input type="checkbox" data-option="caseSensitive">Match case</label></div>
   <label class="auto-highlight" for="auto-highlight"><span><strong>Automatically highlight pages</strong><small>Runs as you browse and as new content loads.</small></span><input id="auto-highlight" type="checkbox" role="switch" disabled></label>
   <p id="page-status" role="status"></p>
   <p class="software-notice">Community · Free open-source tools. Provided as is, without warranty. <a href="https://github.com/highlightext-Org/highlighter/blob/main/DISCLAIMER.md" target="_blank" rel="noopener">License &amp; liability notice ↗</a></p>
-  <footer>Text stays in your browser. <a href="https://highlightext-org.github.io/words/master.json" target="_blank" rel="noopener">View word list ↗</a></footer>
-  <script src="site-access.js"></script><script src="timeline.js"></script><script src="sidebar.js"></script><script src="popup.js"></script>
+  <footer>Text stays local unless you use AI correction. <a href="https://highlightext-org.github.io/words/master.json" target="_blank" rel="noopener">View word list ↗</a></footer>
+  <script src="site-access.js"></script><script src="timeline.js"></script><script src="sidebar.js"></script><script src="popup.js"></script><script src="ai-ui.js"></script>
 </body></html>
