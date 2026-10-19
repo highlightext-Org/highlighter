@@ -8,7 +8,7 @@ const Timeline = require('../timeline');
 function setup(data = { rules: [{ id: 'risk', text: 'risk', category: 'QA' }] }) {
   const stored = {}, alarms = new Map(); let listener, fail = false, downloads = 0, failTimelineWrites = false;
   const context = vm.createContext({
-    AbortSignal, HighlightextRules: Rules, Highlightext: Matcher, HighlightextTimeline: Timeline, URL, crypto: require('node:crypto').webcrypto,
+    AbortSignal, HighlightextRules: Rules, Highlightext: Matcher, HighlightextTimeline: Timeline, HighlightextFollows: require('../follows'), URL, crypto: require('node:crypto').webcrypto,
     fetch: async () => { downloads++; if (fail) throw new Error('Offline test'); return { ok: true, json: async () => data }; },
     runMatchJob: async job => ({ results: job.texts.map(text => Matcher.createMatcher(job.rules, job.options)(text)), capped: false }),
     chrome: {
@@ -145,4 +145,28 @@ test('timeline storage failure stops recording with a persistent visible error',
   const status = await app.send({ type: 'timeline:status', projectId: 'default' });
   assert.equal(status.session.active, false);
   assert.match(status.session.error, /Recording stopped/);
+});
+
+
+test('follow queues validate and deduplicate imports, persist outcomes, and isolate projects', async () => {
+  const app = setup();
+  const state = await app.send({ type: 'getState' });
+  state.config.projects.other = { name: 'Other', rules: [], options: {} };
+  await app.send({ type: 'saveConfig', config: state.config });
+  const send = (type, extra = {}) => app.send({ type: `follow:${type}`, projectId: 'default', ...extra });
+  let result = await send('add', { text: '@Alice https://twitter.com/alice instagram:bob https://evil.example/a', platform: 'x' });
+  assert.equal(result.added, 2); assert.equal(result.duplicates, 1); assert.equal(result.errors.length, 1);
+  result = await send('add', { text: '@alice', platform: 'x' });
+  assert.equal(result.added, 0); assert.equal(result.duplicates, 1);
+  await send('update', { key: 'x:alice', status: 'processing' });
+  assert.equal((await send('list')).entries[0].status, 'processing');
+  await send('clear'); assert.equal((await send('list')).entries.length, 2);
+  await send('update', { key: 'x:alice', status: 'followed' });
+  await send('clear'); assert.equal((await send('list')).entries.length, 1);
+  assert.equal((await app.send({ type: 'follow:list', projectId: 'other' })).entries.length, 0);
+  assert.match((await send('update', { key: 'instagram:bob', status: 'invented' })).error, /Invalid queue status/);
+  assert.match((await app.send({ type: 'follow:list', projectId: 'missing' })).error, /existing project/);
+  const sender = { tab: { id: 2 }, url: 'https://x.com/alice' };
+  const denied = await app.send({ type: 'follow:list', projectId: 'default' }, sender);
+  assert.match(denied.error, /Open the extension/);
 });

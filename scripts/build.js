@@ -3,7 +3,7 @@ const { copyFile, mkdir, readFile, rm, writeFile } = require('node:fs/promises')
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
-const files = ['background.js', 'content.js', 'matcher.js', 'popup.js', 'popup.html', 'popup.css', 'LICENSE', 'DISCLAIMER.md', 'definitions.js', 'chrome-host.js', 'worker-host.js', 'match-worker.js', 'offscreen.html', 'offscreen.js', 'options.html', 'options.js', 'options.css', 'timeline.js', 'timeline-content.js', 'sidebar.js'];
+const files = ['background.js', 'content.js', 'matcher.js', 'popup.js', 'popup.html', 'popup.css', 'LICENSE', 'DISCLAIMER.md', 'definitions.js', 'chrome-host.js', 'worker-host.js', 'match-worker.js', 'offscreen.html', 'offscreen.js', 'options.html', 'options.js', 'options.css', 'timeline.js', 'timeline-content.js', 'sidebar.js', 'follows.js', 'follow.html', 'follow.css', 'follow.js', 'follow-action.js'];
 
 async function build(target, outputRoot = path.join(root, 'dist')) {
   if (!['chrome', 'firefox'].includes(target)) throw new Error(`Unknown browser: ${target}. Use chrome or firefox.`);

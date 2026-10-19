@@ -34,6 +34,36 @@ Zip each build directory's contents with `manifest.json` at the archive root for
 store submission. Build outputs contain extension assets and license files only;
 building does not sign or publish anything.
 
+## Handle follow queue
+
+Open **Follow a list of handles** in the popup or sidebar. Paste handles or profile
+URLs, then choose **Add to queue**. Plain handles use the selected platform; URLs
+identify their platform automatically. Mixed lists can use `x:alice`, `fb:alice`,
+`insta:alice`, and `tiktok:alice`. Separate entries with whitespace, commas, or
+semicolons. Invalid entries are reported; duplicates are skipped. Lists are saved
+locally per project (1,000 accounts per project, 5,000 total).
+
+**Start X queue** visits pending X profiles using your signed-in browser session
+and clicks the profile Follow button. Outcomes distinguish confirmed follows,
+already-following accounts, pending follow requests, and blocked items. Keep the
+manager tab open. Closing it interrupts the run; processing items require manual
+review and explicit requeueing. **Stop** prevents the next action, although an
+in-flight follow may finish. There is a 30-second pause between profiles, which
+does not guarantee acceptance by X. Only one manager tab may run at a time.
+
+X restricts automated bulk following; read its
+[automation rules](https://help.x.com/en/rules-and-policies/x-automation).
+Login prompts, dialogs, missing controls, and unconfirmed results stop the queue.
+Platform UI changes may require selector updates. No credentials or API tokens
+are collected. The runner reuses its own profile tab; the current profile stays visible for inspection.
+
+Facebook, Instagram, and TikTok entries currently support **manual review**:
+open the profile link, follow on the site, then choose **Mark reviewed** or
+**Skip**. Reviewed is a manual status, not verification of a follow. Automatic
+following is implemented for X only. Facebook imports accept username URLs;
+numeric `profile.php?id=...` links are not supported. No actual social accounts
+are followed by the automated test suite.
+
 ## Feature list
 
 1. Download keyword **and regex** definitions from central `master.json`.

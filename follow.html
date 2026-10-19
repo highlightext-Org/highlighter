@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Follow handles · Highlightext</title><link rel="stylesheet" href="popup.css"><link rel="stylesheet" href="follow.css"></head>
+<body>
+<header><div class="logo">H<span>✦</span></div><div><h1>Follow handles</h1><p id="project-name">Highlightext</p></div></header>
+<p>Paste handles or profile URLs, separated by spaces, commas, or new lines. Mixed lists can use <code>x:alice</code>, <code>insta:alice</code>, <code>fb:alice</code>, or <code>tiktok:alice</code>.</p>
+<label for="platform">Platform for plain handles</label>
+<select id="platform"><option value="x">X</option><option value="facebook">Facebook</option><option value="instagram">Instagram</option><option value="tiktok">TikTok</option></select>
+<label for="handles">Your handle list</label><textarea id="handles" maxlength="100000" placeholder="@alice&#10;https://x.com/bob&#10;instagram:charlie"></textarea>
+<button id="import" class="primary" disabled>Add to queue</button>
+<p id="import-status" role="status" aria-live="polite"></p>
+<details><summary>Automatic following on X</summary><p>Uses your signed-in X session. Keep this manager tab open while running. Closing it pauses the queue. The other platforms use manual review.</p><p>X restricts automated bulk following. <a href="https://help.x.com/en/rules-and-policies/x-automation" target="_blank" rel="noopener">Read X’s automation rules</a>. Login prompts, challenges, and unexpected page states stop the run.</p></details>
+<div class="timeline-actions"><button id="start" disabled>Start X queue</button><button id="stop" disabled>Stop</button><button id="clear" disabled>Clear completed / skipped</button></div>
+<p id="status" role="status" aria-live="polite">Loading queue…</p><p id="error" role="alert"></p>
+<ol id="queue"></ol>
+<script src="follows.js"></script><script src="follow-action.js"></script><script src="follow.js"></script>
+</body></html>

@@ -4,6 +4,7 @@
       "definitions.js",
       "matcher.js",
       "timeline.js",
+      "follows.js",
       "worker-host.js",
       "background.js"
     ]

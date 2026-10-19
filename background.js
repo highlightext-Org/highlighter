@@ -1,5 +1,5 @@
 // Firefox preloads these scripts in its event page; Chrome uses a service worker.
-if (typeof importScripts === 'function') importScripts('definitions.js', 'matcher.js', 'timeline.js', 'chrome-host.js');
+if (typeof importScripts === 'function') importScripts('definitions.js', 'matcher.js', 'timeline.js', 'follows.js', 'chrome-host.js');
 const SOURCE = 'https://highlightext-org.github.io/words/master.json';
 // Bump when parsing changes so previously normalized caches are downloaded again.
 const DEFINITIONS_VERSION = 2;
@@ -94,6 +94,7 @@ async function scan(message, sender) {
   return result;
 }
 async function handle(message, sender) {
+  if (message.type?.startsWith('follow:')) return handleFollows(message);
   if (message.type?.startsWith('timeline:')) return handleTimeline(message, sender);
   switch (message.type) {
     case 'loadTerms': {
@@ -194,4 +195,42 @@ async function handleTimeline(message, sender) {
     }
     default: throw new Error('Unknown timeline request.');
   }
+}
+
+// Queue mutations share the existing serialized local-storage writer.
+async function handleFollows(message) {
+  return mutate(async () => {
+    const config = await getConfig();
+    if (!Object.hasOwn(config.projects, message.projectId)) throw new Error('Select an existing project.');
+    const { followQueues = {} } = await chrome.storage.local.get('followQueues');
+    let entries = Object.hasOwn(followQueues, message.projectId) ? followQueues[message.projectId] : [];
+    switch (message.type) {
+      case 'follow:list': return { entries };
+      case 'follow:add': {
+        const parsed = HighlightextFollows.parse(message.text, message.platform);
+        const existing = new Set(entries.map(entry => entry.key));
+        const added = parsed.entries.filter(entry => !existing.has(entry.key));
+        if (entries.length + added.length > 1000) throw new Error('At most 1,000 queued accounts per project.');
+        if (Object.values(followQueues).reduce((n, queue) => n + queue.length, 0) + added.length > 5000) throw new Error('At most 5,000 queued accounts across projects.');
+        entries = entries.concat(added.map(entry => ({ ...entry, status: 'pending', detail: '' })));
+        Object.defineProperty(followQueues, message.projectId, { value: entries, enumerable: true, configurable: true, writable: true });
+        await chrome.storage.local.set({ followQueues });
+        return { entries, added: added.length, duplicates: parsed.duplicates + parsed.entries.length - added.length, errors: parsed.errors };
+      }
+      case 'follow:update': {
+        const allowed = ['pending', 'processing', 'followed', 'already-following', 'requested', 'reviewed', 'skipped', 'blocked'];
+        if (!allowed.includes(message.status)) throw new Error('Invalid queue status.');
+        const entry = entries.find(entry => entry.key === message.key);
+        if (!entry) throw new Error('Queue entry no longer exists.');
+        entry.status = message.status; entry.detail = String(message.detail || '').slice(0, 300);
+        break;
+      }
+      // Keep interrupted and blocked actions available for review when clearing completed items.
+      case 'follow:clear': entries = entries.filter(entry => ['pending', 'processing', 'blocked'].includes(entry.status)); break;
+      default: throw new Error('Unknown follow request.');
+    }
+    Object.defineProperty(followQueues, message.projectId, { value: entries, enumerable: true, configurable: true, writable: true });
+    await chrome.storage.local.set({ followQueues });
+    return { entries };
+  });
 }

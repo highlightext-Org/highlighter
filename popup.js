@@ -128,3 +128,8 @@ $('open-sidebar').addEventListener('click', () => {
   open.then(() => window.close()).catch(error => { $('page-status').textContent = error.message; });
 });
 (async () => { const { draft = '' } = await chrome.storage.session.get('draft'); $('text').value = draft; await load(); })();
+
+$('open-follows').addEventListener('click', () => {
+  if (!state) return;
+  chrome.tabs.create({ url: chrome.runtime.getURL(`follow.html?project=${encodeURIComponent(state.config.activeProject)}`) }).catch(error => { $('page-status').textContent = error.message; });
+});
