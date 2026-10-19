@@ -53,7 +53,39 @@
     }
     return result;
   }
-  const api = { PLATFORMS, profile, parse, requirements };
+  function listSource(value) {
+    try {
+      const url = new URL(value);
+      if (url.protocol !== 'https:' || !['x.com', 'twitter.com'].includes(url.hostname) || url.port || url.username || url.password) return null;
+      const match = url.pathname.match(/^\/([A-Za-z0-9_]{1,15})\/(followers|following|verified_followers)\/?$/);
+      if (!match) return null;
+      return { owner: profile(match[1], 'x').handle, list: match[2], url: `https://x.com/${match[1].toLowerCase()}/${match[2]}` };
+    } catch { return null; }
+  }
+  function collectHandles(document, sourceUrl) {
+    if (!listSource(sourceUrl)) return [];
+    const found = new Map();
+    // User cells inside the primary column exclude navigation, posts, and sidebar suggestions.
+    for (const cell of document.querySelectorAll('[data-testid="primaryColumn"] [data-testid="UserCell"]')) {
+      const rect = cell.getBoundingClientRect();
+      if (!rect.width || !rect.height || rect.bottom <= 0 || rect.top >= document.documentElement.clientHeight || cell.closest('[hidden],[aria-hidden="true"]')) continue;
+      for (const anchor of cell.querySelectorAll('a[href]')) {
+        try {
+          const url = new URL(anchor.getAttribute('href'), sourceUrl);
+          if (!['x.com', 'twitter.com'].includes(url.hostname)) continue;
+          const entry = profile(url.href, 'x');
+          // Require the account's own displayed @handle, rather than handles mentioned in its bio.
+          const labels = [anchor.textContent, ...Array.from(anchor.querySelectorAll('span'), span => span.textContent)];
+          if (!labels.some(label => label?.trim().toLowerCase() === `@${entry.handle}`)) continue;
+          found.set(entry.key, entry.handle);
+          break;
+        } catch { /* Ignore non-profile links. */ }
+      }
+      if (found.size >= 100) break;
+    }
+    return [...found.values()];
+  }
+  const api = { PLATFORMS, profile, parse, requirements, listSource, collectHandles };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.HighlightextFollows = api;
 })(globalThis);

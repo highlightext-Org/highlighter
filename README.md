@@ -353,3 +353,25 @@ unrecognized layouts stop for review.
 These checks use X's displayed account information, not verified physical location.
 X explains its public account-location information in its
 [country settings help](https://help.x.com/en/managing-your-account/how-to-change-country-settings).
+
+## Capture X followers and following handles
+
+Open **Follow a list of handles** from the popup, then use **Capture handles as
+you scroll**. Enter an X profile handle or profile URL, choose Followers,
+Following, or Verified followers, and click **Open list and start capture**.
+Accept the website-access prompt if shown. The extension opens that list (or
+reuses its existing tab). Scroll the list normally to capture visible accounts.
+
+Capture reads account identity links in the list, ignores sidebar suggestions
+and biography mentions, and deduplicates handles per project. It does not scroll
+for you or fetch accounts that have not appeared on screen. Capture is tied to
+the chosen tab and list; other pages cannot add handles. One capture session
+runs at a time and continues with the manager closed. Stop it from the manager.
+If X changes its layout or the counter stays at zero, stop and check the page.
+
+Up to 1,000 unique handles are saved locally per project. **Download handles**
+exports a text file. **Use captured handles** fills the import box for review;
+click **Add to queue** to import them. Capturing never starts the follow queue.
+**Clear captured** stops capture and clears only the captured list, keeping the
+follow queue. A full list stops capture with a visible status; download and clear
+it to continue collecting.

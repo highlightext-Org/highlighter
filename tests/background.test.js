@@ -12,7 +12,7 @@ function setup(data = { rules: [{ id: 'risk', text: 'risk', category: 'QA' }] })
     fetch: async () => { downloads++; if (fail) throw new Error('Offline test'); return { ok: true, json: async () => data }; },
     runMatchJob: async job => ({ results: job.texts.map(text => Matcher.createMatcher(job.rules, job.options)(text)), capped: false }),
     chrome: {
-      tabs: { query: async () => [{ id: 5 }] },
+      tabs: { query: async () => [{ id: 5 }], create: async ({ url }) => ({ id: 6, url }), update: async (id, value) => ({ id, ...value }) },
       scripting: { executeScript: async () => [] },
       runtime: { getURL: file => `moz-extension://test/${file}`, onMessage: { addListener: fn => { listener = fn; } } },
       alarms: { onAlarm: { addListener() {} }, create: async (id, options) => alarms.set(id, options), clear: async id => alarms.delete(id) },
@@ -205,4 +205,52 @@ test('follow requirements persist by project, validate before saving, and defaul
   assert.equal((await restarted.send({ type: 'follow:list', projectId: 'default' })).requirements.connectedVia, 'United States App Store');
   assert.match((await send('requirements', { requirements: { basedIn: 'x'.repeat(101) } })).error, /100 characters/);
   assert.equal((await send('list')).requirements.basedIn, 'United States');
+});
+
+test('handle capture deduplicates scrolled lists, persists per project, and rejects wrong tabs and stale sessions', async () => {
+  const app = setup();
+  const { config } = await app.send({ type: 'getState' });
+  config.projects.other = { name: 'Other', rules: [], options: {} };
+  await app.send({ type: 'saveConfig', config });
+  const send = (action, extra = {}) => app.send({ type: `handles:${action}`, projectId: 'default', ...extra });
+  const started = await send('start', { url: 'https://x.com/owner/followers' });
+  assert.equal(started.session.active, true);
+  const sender = { tab: { id: 6 }, frameId: 0, url: 'https://x.com/owner/followers' };
+  const capture = { type: 'handles:capture', sessionId: started.session.id, entries: ['Alice', 'alice', 'bob'] };
+  assert.equal((await app.send(capture, sender)).active, true);
+  await app.send(capture, sender);
+  assert.deepEqual((await send('status')).entries.map(entry => entry.handle), ['alice', 'bob']);
+  assert.equal((await app.send({ type: 'handles:status', projectId: 'other' })).entries.length, 0);
+  assert.equal((await app.send({ type: 'handles:status' }, sender)).entries, undefined);
+  assert.equal((await app.send(capture, { ...sender, tab: { id: 8 } })).active, false);
+  assert.equal((await app.send(capture, { ...sender, url: 'https://x.com/owner/following' })).active, false);
+  assert.match((await app.send(capture, { ...sender, frameId: 2 })).error, /lists only/);
+  assert.match((await app.send({ ...capture, entries: Array(101).fill('alice') }, sender)).error, /batch/);
+  assert.match((await app.send({ ...capture, entries: ['insta:alice'] }, sender)).error, /X handles/);
+  assert.match((await app.send({ type: 'handles:clear', projectId: 'default' }, sender)).error, /extension/);
+  const restarted = setup(); Object.assign(restarted.stored, structuredClone(app.stored));
+  assert.equal((await restarted.send({ type: 'handles:status', projectId: 'default' })).entries.length, 2);
+  await send('stop');
+  assert.equal((await app.send(capture, sender)).active, false);
+  assert.equal((await send('status')).entries.length, 2);
+  const next = await send('start', { url: 'https://x.com/owner/following' });
+  assert.notEqual(next.session.id, started.session.id);
+  assert.equal((await app.send(capture, sender)).active, false);
+  await send('clear');
+  assert.equal((await send('status')).entries.length, 0);
+  assert.equal((await send('status')).session.active, false);
+  assert.match((await send('start', { url: 'https://evil.example/owner/followers' })).error, /list URL/);
+});
+
+test('handle capture stops visibly at the project limit without dropping earlier handles', async () => {
+  const app = setup();
+  app.stored.capturedHandles = { default: Array.from({ length: 999 }, (_, i) => ({ key: `x:user${i}`, handle: `user${i}` })) };
+  const start = await app.send({ type: 'handles:start', projectId: 'default', url: 'https://x.com/owner/following' });
+  const result = await app.send({ type: 'handles:capture', sessionId: start.session.id, entries: ['last', 'overflow'] },
+    { tab: { id: 6 }, frameId: 0, url: 'https://x.com/owner/following' });
+  assert.equal(result.active, false);
+  const status = await app.send({ type: 'handles:status', projectId: 'default' });
+  assert.equal(status.entries.length, 1000);
+  assert.equal(status.entries.at(-1).handle, 'last');
+  assert.match(status.session.error, /1,000/);
 });

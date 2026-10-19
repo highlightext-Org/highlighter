@@ -5,6 +5,16 @@
 <header><div class="logo">H<span>✦</span></div><div><h1>Follow handles</h1><p id="project-name">Highlightext</p></div></header>
 <button id="grant-site-access" data-scope="x">Allow website access</button>
 <p id="site-access-status" role="status" aria-live="polite"></p>
+<fieldset id="capture-controls">
+<legend>Capture handles as you scroll</legend>
+<p>Open an X followers or following list, then scroll normally. Visible account handles save locally to this project, without duplicates. Up to 1,000 handles; capture continues with this manager closed.</p>
+<label for="capture-profile">X profile handle or profile URL</label><input id="capture-profile" maxlength="2048" placeholder="@username or https://x.com/username">
+<label for="capture-list">List to capture</label><select id="capture-list"><option value="followers">Followers</option><option value="following">Following</option><option value="verified_followers">Verified followers</option></select>
+<div class="timeline-actions"><button id="capture-start">Open list and start capture</button><button id="capture-stop" disabled>Stop capture</button></div>
+<p id="capture-status" role="status" aria-live="polite">Loading captured handles…</p>
+<div class="timeline-actions"><button id="capture-use" disabled>Use captured handles</button><button id="capture-download" disabled>Download handles</button><button id="capture-clear" disabled>Clear captured</button></div>
+<p id="capture-error" role="alert"></p>
+</fieldset>
 <p>Paste handles or profile URLs, separated by spaces, commas, or new lines. Mixed lists can use <code>x:alice</code>, <code>insta:alice</code>, <code>fb:alice</code>, or <code>tiktok:alice</code>.</p>
 <label for="platform">Platform for plain handles</label>
 <select id="platform"><option value="x">X</option><option value="facebook">Facebook</option><option value="instagram">Instagram</option><option value="tiktok">TikTok</option></select>
@@ -24,5 +34,5 @@
 <div class="timeline-actions"><button id="start" disabled>Start X queue</button><button id="stop" disabled>Stop</button><button id="clear" disabled>Clear completed / skipped</button></div>
 <p id="status" role="status" aria-live="polite">Loading queue…</p><p id="error" role="alert"></p>
 <ol id="queue"></ol>
-<script src="site-access.js"></script><script src="follows.js"></script><script src="follow-action.js"></script><script src="follow.js"></script>
+<script src="site-access.js"></script><script src="follows.js"></script><script src="follow-action.js"></script><script src="follow.js"></script><script src="handle-capture-ui.js"></script>
 </body></html>

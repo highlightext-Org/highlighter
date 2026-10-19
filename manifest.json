@@ -40,6 +40,17 @@
         "timeline-content.js"
       ],
       "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://x.com/*",
+        "https://twitter.com/*"
+      ],
+      "js": [
+        "follows.js",
+        "handle-capture-content.js"
+      ],
+      "run_at": "document_idle"
     }
   ],
   "side_panel": {

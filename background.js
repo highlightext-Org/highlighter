@@ -94,6 +94,7 @@ async function scan(message, sender) {
   return result;
 }
 async function handle(message, sender) {
+  if (message.type?.startsWith('handles:')) return handleCapture(message, sender);
   if (message.type?.startsWith('follow:')) return handleFollows(message);
   if (message.type?.startsWith('timeline:')) return handleTimeline(message, sender);
   switch (message.type) {
@@ -128,7 +129,7 @@ async function handle(message, sender) {
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
   if (message.target === 'match-host') return;
   // Injected scripts can scan a page; configuration and exports belong to extension UI.
-  if (sender.tab && !sender.url?.startsWith(chrome.runtime.getURL('')) && !['scan', 'hext:settings', 'timeline:capture', 'timeline:status'].includes(message.type)) { respond({ error: 'Open the extension to manage rules.' }); return; }
+  if (sender.tab && !sender.url?.startsWith(chrome.runtime.getURL('')) && !['scan', 'hext:settings', 'timeline:capture', 'timeline:status', 'handles:capture', 'handles:status'].includes(message.type)) { respond({ error: 'Open the extension to manage rules.' }); return; }
   handle(message, sender).then(respond, error => respond({ error: error.message }));
   return true;
 });
@@ -257,5 +258,77 @@ async function handleFollows(message) {
     Object.defineProperty(followQueues, message.projectId, { value: entries, enumerable: true, configurable: true, writable: true });
     await chrome.storage.local.set({ followQueues });
     return { entries };
+  });
+}
+
+async function handleCapture(message, sender) {
+  const F = HighlightextFollows;
+  const fromPage = sender.tab && !sender.url?.startsWith(chrome.runtime.getURL(''));
+  if (fromPage && (sender.frameId > 0 || !F.listSource(sender.url))) throw new Error('Handle capture supports X followers and following lists only.');
+  if (message.type === 'handles:status' && fromPage) {
+    const { handleCaptureSession = null } = await chrome.storage.local.get('handleCaptureSession');
+    return { session: handleCaptureSession?.tabId === sender.tab.id ? handleCaptureSession : null };
+  }
+  return mutate(async () => {
+    const { handleCaptureSession: session = null, capturedHandles = {} } = await chrome.storage.local.get(['handleCaptureSession', 'capturedHandles']);
+    if (message.type === 'handles:capture') {
+      if (!fromPage) throw new Error('Capture must come from a list page.');
+      if (!session?.active || session.id !== message.sessionId || session.tabId !== sender.tab.id || F.listSource(sender.url).url !== session.sourceUrl) return { active: false };
+      if (!Array.isArray(message.entries) || message.entries.length > 100 || message.entries.some(value => typeof value !== 'string' || value.length > 16)) throw new Error('Handle capture batch is too large or invalid.');
+      const config = await getConfig();
+      if (!Object.hasOwn(config.projects, session.projectId)) return { active: false };
+      const entries = Object.hasOwn(capturedHandles, session.projectId) ? capturedHandles[session.projectId] : [];
+      const keys = new Set(entries.map(entry => entry.key));
+      for (const value of message.entries) {
+        const entry = F.profile(value, 'x');
+        if (entry.platform !== 'x') throw new Error('Capture accepts X handles only.');
+        if (!keys.has(entry.key) && entries.length < 1000) {
+          keys.add(entry.key); entries.push({ ...entry, sourceUrl: session.sourceUrl, capturedAt: new Date().toISOString() });
+        }
+      }
+      Object.defineProperty(capturedHandles, session.projectId, { value: entries, enumerable: true, writable: true, configurable: true });
+      const next = entries.length >= 1000 ? { ...session, active: false, error: 'Reached the 1,000 handle limit for this project. Download or clear captured handles to continue.' } : session;
+      try { await chrome.storage.local.set({ capturedHandles, handleCaptureSession: next }); }
+      catch (error) {
+        await chrome.storage.local.set({ handleCaptureSession: { ...session, active: false, error: `Capture stopped: ${error.message}` } });
+        throw error;
+      }
+      return { active: next.active };
+    }
+    if (fromPage) throw new Error('Open the extension to manage handle capture.');
+    const config = await getConfig();
+    if (!Object.hasOwn(config.projects, message.projectId)) throw new Error('Select an existing project.');
+    const entries = Object.hasOwn(capturedHandles, message.projectId) ? capturedHandles[message.projectId] : [];
+    switch (message.type) {
+      case 'handles:status': return { entries, session };
+      case 'handles:start': {
+        const source = F.listSource(message.url);
+        if (!source) throw new Error('Use an X followers or following list URL.');
+        if (entries.length >= 1000) throw new Error('Download or clear the 1,000 captured handles before continuing.');
+        const tabs = await chrome.tabs.query({ url: ['https://x.com/*', 'https://twitter.com/*'] });
+        const existing = tabs.find(tab => F.listSource(tab.url)?.url === source.url);
+        const tab = existing ? await chrome.tabs.update(existing.id, { active: true }) : await chrome.tabs.create({ url: source.url, active: true });
+        const next = { id: crypto.randomUUID(), active: true, projectId: message.projectId, tabId: tab.id, sourceUrl: source.url };
+        await chrome.storage.local.set({ handleCaptureSession: next });
+        // New/loading tabs receive the manifest content script when their document loads.
+        try { if (existing?.status === 'complete') await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['follows.js', 'handle-capture-content.js'] }); }
+        catch (error) {
+          await chrome.storage.local.set({ handleCaptureSession: { ...next, active: false, error: `Could not attach capture: ${error.message}. Allow website access and try again.` } });
+          throw error;
+        }
+        return { entries, session: next };
+      }
+      case 'handles:stop':
+      case 'handles:clear': {
+        const changes = {};
+        if (session?.projectId === message.projectId) changes.handleCaptureSession = { ...session, active: false };
+        if (message.type === 'handles:clear') {
+          delete capturedHandles[message.projectId]; changes.capturedHandles = capturedHandles;
+        }
+        await chrome.storage.local.set(changes);
+        return { entries: message.type === 'handles:clear' ? [] : entries, session: changes.handleCaptureSession || session };
+      }
+      default: throw new Error('Unknown handle capture request.');
+    }
   });
 }
