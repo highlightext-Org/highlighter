@@ -284,6 +284,10 @@ navigation with the popup closed. Highlighting scripts remain idle when switched
 off. Timeline recording remains limited to supported social sites and stays idle
 until recording starts.
 After updating, accept the added site permissions if the browser requests them.
+If Firefox reports “Missing host permission for the tab”, click **Allow website
+access** in the popup or Follow handles manager and accept the prompt. This also
+works for temporary add-ons loaded through `about:debugging`. Reload open web
+pages afterward; requeue blocked accounts before restarting the X queue.
 If Firefox blocks its download, allow the word-list
 host in the extension's website permissions in `about:addons`.
 

@@ -4,6 +4,8 @@
 <body>
   <header><div class="logo">H<span>✦</span></div><div><h1>Highlightext</h1><p>Find the words that matter.</p></div><button id="refresh" class="quiet" title="Refresh word list" aria-label="Refresh word list">↻</button></header>
   <div id="status" role="status">Loading your word list…</div>
+  <button id="grant-site-access" class="secondary sidebar-button">Allow website access</button>
+  <p id="site-access-status" role="status" aria-live="polite"></p>
   <div class="project-picker"><label for="project">Project</label><select id="project"></select><button id="manage">Manage rules</button></div>
   <button id="open-sidebar" class="secondary sidebar-button">Keep open in sidebar ↗</button>
   <button id="open-follows" class="secondary sidebar-button">Follow a list of handles ↗</button>
@@ -24,5 +26,5 @@
   <p id="page-status" role="status"></p>
   <p class="software-notice">Community · Free open-source tools. Provided as is, without warranty. <a href="https://github.com/highlightext-Org/highlighter/blob/main/DISCLAIMER.md" target="_blank" rel="noopener">License &amp; liability notice ↗</a></p>
   <footer>Text stays in your browser. <a href="https://highlightext-org.github.io/words/master.json" target="_blank" rel="noopener">View word list ↗</a></footer>
-  <script src="timeline.js"></script><script src="sidebar.js"></script><script src="popup.js"></script>
+  <script src="site-access.js"></script><script src="timeline.js"></script><script src="sidebar.js"></script><script src="popup.js"></script>
 </body></html>
