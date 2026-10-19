@@ -43,15 +43,27 @@ the key blank keeps the saved key. **Remove saved key** deletes that provider's
 key. Defaults are `gpt-4.1-mini` and `claude-haiku-4-5`; you can enter another
 model ID that supports the provider's structured JSON output.
 
-Click **Correct text** to proofread the editor (up to 20,000 characters), then
-review the result. **Undo correction** restores the original until you edit it.
-Edits made during a request are preserved instead of being overwritten. This
-feature acts only on the extension's editor. It does not scan or change website
-input fields. Nothing is submitted or posted to a social account.
+**Use focused page text** is enabled by default. Click a text box on the web
+page, such as X's post composer; its text appears automatically in the sidebar
+preview and updates as you type. Click **Correct text** to proofread it (up to
+20,000 characters) and apply the correction directly to that field.
+**Undo correction** restores the original if the field has not changed. Switching
+fields, navigating, or typing during a request prevents stale replacements.
+Nothing is submitted or posted to a social account.
+
+This supports text inputs, textareas, and contenteditable editors in the main
+page, including open shadow roots. Password, payment-autofill, disabled, and
+readonly inputs are excluded. Embedded iframe editors are not currently
+supported. Some custom rich editors may refuse native text replacement; the
+sidebar reports that failure. Reload the extension and open pages after updating
+to install the focus tracker. Website access must be enabled.
+
+Turn off **Use focused page text** to type or paste into the side-panel draft.
+Page previews stay in memory; they are not saved as the manual draft.
 
 Keys are stored in local extension storage without encryption, separately from
 project config and exports. Settings responses expose only whether a key exists.
-The selected provider receives your editor text and API authentication only when
+The selected provider receives the selected field or draft text and API authentication only when
 you click Correct text; API usage is billed by that provider. A ChatGPT or Claude
 chat subscription is separate from API access. Firefox asks for optional data
 consent before sending a correction. Website access must allow the API host.

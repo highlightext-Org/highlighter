@@ -3,16 +3,17 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 
-async function setup({ key = true, firefox = false, consent = true } = {}) {
+async function setup({ key = true, firefox = false, consent = true, page } = {}) {
   const nodes = {}, calls = [];
   let response = async () => ({ corrected_text: 'My spelling is better.' }), inClick = false;
   const settings = { provider: 'openai', providers: { openai: { hasKey: key, model: 'gpt-4.1-mini' }, anthropic: { hasKey: false, model: 'claude-haiku-4-5' } } };
   const node = id => nodes[id] ||= {
-    value: id === 'text' ? 'my speling is beter.' : '', hidden: false, disabled: false, dataset: {}, handlers: {},
+    value: id === 'text' ? 'my speling is beter.' : '', hidden: id === 'ai-undo', disabled: false, dataset: {}, handlers: {},
     addEventListener(type, fn) { this.handlers[type] = fn; },
     dispatchEvent(event) { this.handlers[event.type]?.(event); }, focus() {}
   };
   vm.runInNewContext(fs.readFileSync(require.resolve('../ai-ui'), 'utf8'), {
+    HextFocusedEditor: page,
     Event: class { constructor(type) { this.type = type; } },
     document: { getElementById: node },
     chrome: {
@@ -83,4 +84,46 @@ test('saving and removing keys clears the key input and does not restore a remov
   await app.click('ai-save'); assert.equal(app.node('ai-key').value, '');
   await app.click('ai-remove'); assert.equal(app.node('ai-remove').disabled, true);
   assert.match(app.node('ai-key-status').textContent, /No key/);
+});
+
+
+test('correction reads the page field instead of the manual draft, writes back, and undoes in the page', async () => {
+  let app, writes = [], current = { text: 'page speling', id: 'page:1', revision: 1 };
+  const page = {
+    enabled: () => true,
+    async read() { return { ...current }; },
+    async replace(source, text) {
+      writes.push({ source, text });
+      current = { ...current, text, revision: current.revision + 1 };
+      app.edit(text);
+      return { ...current };
+    }
+  };
+  app = await setup({ page });
+  await app.click('ai-correct');
+  assert.equal(app.calls.find(call => call.type === 'ai:correct').text, 'page speling');
+  assert.equal(writes[0].source.text, 'page speling');
+  assert.match(app.node('ai-status').textContent, /page text box/);
+  await app.click('ai-undo');
+  assert.equal(writes[1].text, 'page speling');
+  assert.equal(app.node('ai-undo').hidden, true);
+});
+
+test('missing or oversized page editors never send the side-panel draft for correction', async () => {
+  for (const source of [null, { tooLong: true, text: '' }]) {
+    const app = await setup({ page: { enabled: () => true, read: async () => source } });
+    await app.click('ai-correct');
+    assert(!app.calls.some(call => call.type === 'ai:correct'));
+    assert.equal(app.node('ai-status').dataset.error, 'true');
+  }
+});
+
+test('a page replacement conflict keeps the page unchanged and reports the conflict', async () => {
+  const app = await setup({ page: { enabled: () => true,
+    read: async () => ({ text: 'page speling' }),
+    replace: async () => { throw new Error('The page editor changed. Your latest text was kept.'); }
+  } });
+  await app.click('ai-correct');
+  assert.match(app.node('ai-status').textContent, /latest text was kept/);
+  assert.equal(app.node('ai-undo').hidden, true);
 });

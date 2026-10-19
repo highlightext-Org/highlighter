@@ -55,7 +55,7 @@ async function saveOptions() { project().options = { ...options }; await request
 $('text').maxLength = 20000;
 $('text').addEventListener('input', () => {
   clearTimeout(renderTimer); renderGeneration++; renderTimer = setTimeout(render, 250);
-  clearTimeout(saveTimer); saveTimer = setTimeout(() => chrome.storage.session.set({ draft: $('text').value }), 150);
+  clearTimeout(saveTimer); if ($('text').readOnly) return; saveTimer = setTimeout(() => chrome.storage.session.set({ draft: $('text').value }), 150);
 });
 $('text').addEventListener('scroll', syncScroll);
 document.querySelectorAll('[data-option]').forEach(input => input.addEventListener('change', () => { options[input.dataset.option] = input.checked; saveOptions().catch(error => { $('page-status').textContent = error.message; }); }));
@@ -131,7 +131,7 @@ $('open-sidebar').addEventListener('click', () => {
   const open = openHighlightextSidebar();
   open.then(() => window.close()).catch(error => { $('page-status').textContent = error.message; });
 });
-(async () => { const { draft = '' } = await chrome.storage.session.get('draft'); $('text').value = draft; await load(); })();
+(async () => { const { draft = '' } = await chrome.storage.session.get('draft'); if (!$('use-page-editor')?.checked) $('text').value = draft; await load(); })();
 
 $('open-follows').addEventListener('click', () => {
   if (!state) return;

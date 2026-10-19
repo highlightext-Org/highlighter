@@ -43,33 +43,47 @@
   el('ai-remove').addEventListener('click', () => save(true));
   el('ai-correct').addEventListener('click', async () => {
     if (loading) return;
-    const original = editor.value, startedAt = revision;
-    if (!original.trim() || original.length > 20000) { status('Enter between 1 and 20,000 characters to correct.', true); return; }
+    const page = globalThis.HextFocusedEditor;
+    const usePage = page?.enabled();
+    if (!usePage && (!editor.value.trim() || editor.value.length > 20000)) { status('Enter between 1 and 20,000 characters to correct.', true); return; }
     if (!settings.providers[settings.provider].hasKey) { el('ai-settings').open = true; status('Add an API key and save AI settings first.', true); return; }
     el('ai-correct').disabled = true; el('ai-save').disabled = true; el('ai-remove').disabled = true;
     status('Correcting spelling and grammar…');
     try {
       // Keep Firefox's optional-data prompt inside the user's click gesture.
       const dataTypes = chrome.runtime.getManifest().browser_specific_settings?.gecko?.data_collection_permissions?.optional;
-      if (dataTypes && !await chrome.permissions.request({ data_collection: dataTypes })) throw new Error('AI data access was not granted. Your text was not sent.');
+      const consent = dataTypes && chrome.permissions.request({ data_collection: dataTypes });
+      if (consent && !await consent) throw new Error('AI data access was not granted. Your text was not sent.');
+      const source = usePage ? await page.read() : null;
+      if (usePage && (!page.enabled() || !source)) throw new Error('Click the text box on the page first.');
+      if (source?.tooLong) throw new Error('The page text exceeds the 20,000 character limit.');
+      const original = source ? source.text : editor.value, startedAt = revision;
+      if (!original.trim() || original.length > 20000) throw new Error('Enter between 1 and 20,000 characters to correct.');
       const result = await request({ type: 'ai:correct', text: original });
       if (revision !== startedAt) { status('You edited the text while correction was running. Your edits were kept.'); return; }
       if (typeof result.corrected_text !== 'string' || !result.corrected_text.trim() || result.corrected_text.length > 40000) throw new Error('The correction was invalid. Your text was not changed.');
       if (result.corrected_text === original) { status('No corrections needed.'); return; }
-      replace(result.corrected_text);
-      undo = { original, corrected: result.corrected_text };
+      const correctedSource = source ? await page.replace(source, result.corrected_text) : null;
+      if (!source) replace(result.corrected_text);
+      undo = { original, corrected: result.corrected_text, source: correctedSource };
       el('ai-undo').hidden = false;
-      status('Spelling and grammar corrected. Review the result or undo.');
+      status(source ? 'Corrected in the page text box. Review the result or undo.' : 'Spelling and grammar corrected. Review the result or undo.');
     } catch (error) { status(error.message, true); }
     finally {
       el('ai-correct').disabled = false; el('ai-save').disabled = false;
       el('ai-remove').disabled = !settings.providers[el('ai-provider').value].hasKey;
     }
   });
-  el('ai-undo').addEventListener('click', () => {
+  el('ai-undo').addEventListener('click', async () => {
     if (!undo || editor.value !== undo.corrected) return;
-    const original = undo.original;
-    replace(original); status('Original text restored.');
+    const previous = undo;
+    el('ai-undo').disabled = true;
+    try {
+      if (previous.source) await globalThis.HextFocusedEditor.replace(previous.source, previous.original);
+      else replace(previous.original);
+      undo = null; el('ai-undo').hidden = true; status('Original text restored.');
+    } catch (error) { status(error.message, true); }
+    finally { el('ai-undo').disabled = false; }
   });
   for (const id of ['ai-correct', 'ai-save', 'ai-remove', 'ai-provider']) el(id).disabled = true;
   request({ type: 'ai:settings' }).then(value => {

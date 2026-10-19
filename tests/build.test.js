@@ -25,7 +25,7 @@ test('both packages boot and load terms in their browser background environments
       assert.deepEqual(manifest.content_scripts[1].js, ['timeline.js', 'timeline-content.js']);
       assert(files.includes('timeline.js') && files.includes('timeline-content.js'));
       assert.deepEqual(manifest.content_scripts[3].js, ['auto-like-content.js', 'auto-follow-content.js']);
-      for (const asset of ['ai.js', 'ai-ui.js', 'auto-like-content.js', 'auto-follow-content.js', 'handle-capture-ui.js', 'handle-capture-content.js', 'site-access.js', 'follows.js', 'follow.html', 'follow.js', 'follow-action.js', 'follow.css']) assert(files.includes(asset));
+      for (const asset of ['focused-editor-content.js', 'focused-editor-ui.js', 'ai.js', 'ai-ui.js', 'auto-like-content.js', 'auto-follow-content.js', 'handle-capture-ui.js', 'handle-capture-content.js', 'site-access.js', 'follows.js', 'follow.html', 'follow.js', 'follow-action.js', 'follow.css']) assert(files.includes(asset));
       for (const match of manifest.content_scripts[0].matches) assert(manifest.host_permissions.includes(match));
       assert.deepEqual(manifest.content_scripts[2].js, ['follows.js', 'handle-capture-content.js']);
       if (browser === 'firefox') {
