@@ -139,7 +139,7 @@ Rule fields:
 | Field | Meaning |
 | --- | --- |
 | `id` | Stable ID used by overrides. Generated from matching content, group, kind, and category if omitted. Explicit stable IDs are recommended. |
-| `type`, `ruleType`, or `matchType` | `literal` or `regex`; `keyword` and `text` mean literal. |
+| `type`, `ruleType`, `matchType`, or `match_mode` | `literal` or `regex`; `keyword` and `text` mean literal. The central word list uses `match_mode: "regex"`. |
 | `text` / `pattern` | Keyword or regex source. A `pattern` field implies regex unless the type explicitly says literal. |
 | `flags` | JavaScript flags such as `imsu`. Duplicate, unsupported, or incompatible flags are rejected. |
 | `enabled` | Defaults to true. |
@@ -183,7 +183,7 @@ of every project's source layers. Imports are limited to 8 MiB.
 
 - Remote downloads: 60 second timeout, 32 MiB maximum; preserve the previous
   successful cache if a download fails or no valid rules can be extracted.
-- At most 200 active regex patterns per project; each regex execution has a 75 ms
+- At most 500 active regex patterns per project; each regex execution has a 75 ms
   worker deadline and the overall scan has a 2 second budget. Timeouts terminate
   the worker and identify the slow rule or overall scan in the UI. Simplify or
   disable the pattern to resume matching. A subsequent scan uses a fresh worker.

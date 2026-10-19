@@ -8,7 +8,8 @@
     const raw = { ...defaults, ...input };
     let text = String(raw.pattern ?? raw.text ?? '');
     let flags = String(raw.flags ?? '');
-    const explicit = raw.ruleType ?? raw.matchType ?? (['regex', 'literal', 'keyword', 'text'].includes(raw.type) ? raw.type : undefined);
+    // master.json uses match_mode; legacy keyword type can instead be a sentiment.
+    const explicit = raw.ruleType ?? raw.matchType ?? raw.match_mode ?? (['regex', 'literal', 'keyword', 'text'].includes(raw.type) ? raw.type : undefined);
     const literal = /^\/([\s\S]*)\/([a-z]*)$/.exec(text);
     const type = explicit === 'regex' || (!explicit && (raw.regex === true || raw.pattern != null || literal)) ? 'regex' : 'literal';
     if (type === 'regex' && literal) { text = literal[1]; if (!flags) flags = literal[2]; }

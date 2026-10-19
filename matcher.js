@@ -1,6 +1,8 @@
 (function (root) {
   'use strict';
   const DEFAULT_COLOR = '#fde047';
+  // Allow the central 226-pattern list plus custom rules; worker deadlines still apply.
+  const MAX_REGEX_RULES = 500;
   const word = /[\p{L}\p{N}_]/u;
   const color = value => /^#[0-9a-f]{6}$/i.test(value || '') ? value : DEFAULT_COLOR;
 
@@ -85,7 +87,7 @@
     const enabled = terms.filter(term => term.enabled !== false && options[term.kind] !== false);
     const literals = createLiteralMatcher(enabled.filter(term => term.type !== 'regex'), options);
     const patterns = enabled.filter(term => term.type === 'regex');
-    if (patterns.length > 200) throw new Error('Enable at most 200 regex rules per project.');
+    if (patterns.length > MAX_REGEX_RULES) throw new Error(`Enable at most ${MAX_REGEX_RULES} regex rules per project.`);
     return (text, limit = 5000) => {
       if (limit <= 0) return [];
       const matches = literals(text, limit);
@@ -116,7 +118,7 @@
       return result;
     };
   }
-  const api = { extractTerms, createMatcher };
+  const api = { extractTerms, createMatcher, MAX_REGEX_RULES };
   root.Highlightext = api;
   if (typeof module !== 'undefined') module.exports = api;
 })(globalThis);

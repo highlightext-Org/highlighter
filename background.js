@@ -1,6 +1,8 @@
 // Firefox preloads these scripts in its event page; Chrome uses a service worker.
 if (typeof importScripts === 'function') importScripts('definitions.js', 'matcher.js', 'chrome-host.js');
 const SOURCE = 'https://highlightext-org.github.io/words/master.json';
+// Bump when parsing changes so previously normalized caches are downloaded again.
+const DEFINITIONS_VERSION = 2;
 let pending, writeQueue = Promise.resolve();
 const defaultConfig = () => ({ activeProject: 'default', autoRefresh: false, localRules: [], projects: { default: { name: 'Default', rules: [], overrides: {}, disabledGroups: [], options: { wholeWords: true, caseSensitive: false }, recordMatches: false } } });
 async function getConfig() {
@@ -15,12 +17,12 @@ function mutate(task) {
   writeQueue = next.catch(() => {}); return next;
 }
 async function cachedDefinitions() {
-  const cached = await chrome.storage.local.get(['remoteRules', 'terms', 'updatedAt', 'syncError', 'definitionErrors']);
+  const cached = await chrome.storage.local.get(['remoteRules', 'terms', 'updatedAt', 'syncError', 'definitionErrors', 'definitionsVersion']);
   return { ...cached, remoteRules: cached.remoteRules || (cached.terms || []).map(rule => HighlightextRules.normalizeRule(rule)) };
 }
 async function loadTerms(force = false) {
   const cached = await cachedDefinitions(), config = await getConfig();
-  if (!force && cached.remoteRules.length && (!config.autoRefresh || Date.now() - cached.updatedAt < 86400000)) return cached;
+  if (!force && cached.definitionsVersion === DEFINITIONS_VERSION && cached.remoteRules.length && (!config.autoRefresh || Date.now() - cached.updatedAt < 86400000)) return cached;
   if (pending) return pending;
   pending = (async () => {
     try {
@@ -28,7 +30,7 @@ async function loadTerms(force = false) {
       if (!response.ok) throw new Error(`Definitions download failed (HTTP ${response.status}).`);
       const { rules, errors } = HighlightextRules.extractRules(await HighlightextRules.readDefinitions(response));
       if (!rules.length) throw new Error('The source contains no valid rules.');
-      const result = { remoteRules: rules, updatedAt: Date.now(), syncError: '', definitionErrors: errors };
+      const result = { remoteRules: rules, updatedAt: Date.now(), syncError: '', definitionErrors: errors, definitionsVersion: DEFINITIONS_VERSION };
       await chrome.storage.local.set(result);
       return result;
     } catch (error) {
@@ -102,7 +104,7 @@ async function handle(message, sender) {
       const config = validateConfig(message.config), cached = await cachedDefinitions();
       for (const project of Object.values(config.projects)) {
         const rules = HighlightextRules.resolveRules(cached.remoteRules, config.localRules, project);
-        if (rules.filter(rule => rule.type === 'regex').length > 200) throw new Error('Enable at most 200 regex rules per project.');
+        if (rules.filter(rule => rule.type === 'regex').length > Highlightext.MAX_REGEX_RULES) throw new Error(`Enable at most ${Highlightext.MAX_REGEX_RULES} regex rules per project.`);
       }
       await chrome.storage.local.set({ config }); await configureAlarms(config); return { ok: true };
     });

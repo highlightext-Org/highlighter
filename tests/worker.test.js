@@ -21,3 +21,13 @@ test('matching worker is terminated on catastrophic regex and a subsequent safe 
   const result = await run({ rules: [{ id: 'safe', text: '\\d+', type: 'regex', wholeWords: false }], options: {}, texts: ['count 123'] });
   assert.equal(result.results[0][0].start, 6);
 });
+
+test('worker scans more than 200 regex patterns while retaining the pattern limit', async () => {
+  const { MAX_REGEX_RULES } = require('../matcher');
+  const rules = Array.from({ length: 226 }, (_, i) =>
+    ({ id: `place-${i}`, text: `\\bplace[\\s-]*${i}\\b`, type: 'regex' }));
+  const run = host();
+  const result = await run({ rules, options: {}, texts: ['PLACE-225 place 0'] });
+  assert.equal(result.results[0].length, 2);
+  await assert.rejects(run({ rules: Array(MAX_REGEX_RULES + 1).fill(rules[0]), options: {}, texts: ['place 0'] }), /at most 500/);
+});

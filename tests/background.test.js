@@ -4,11 +4,11 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const Rules = require('../definitions');
 const Matcher = require('../matcher');
-function setup() {
+function setup(data = { rules: [{ id: 'risk', text: 'risk', category: 'QA' }] }) {
   const stored = {}, alarms = new Map(); let listener, fail = false, downloads = 0;
   const context = vm.createContext({
     AbortSignal, HighlightextRules: Rules, Highlightext: Matcher, URL,
-    fetch: async () => { downloads++; if (fail) throw new Error('Offline test'); return { ok: true, json: async () => ({ rules: [{ id: 'risk', text: 'risk', category: 'QA' }] }) }; },
+    fetch: async () => { downloads++; if (fail) throw new Error('Offline test'); return { ok: true, json: async () => data }; },
     runMatchJob: async job => ({ results: job.texts.map(text => Matcher.createMatcher(job.rules, job.options)(text)), capped: false }),
     chrome: {
       runtime: { getURL: file => `moz-extension://test/${file}`, onMessage: { addListener: fn => { listener = fn; } } },
@@ -29,6 +29,25 @@ test('sync cache preserves last success and visible errors across offline reques
   app.offline(); const offline = await app.send({ type: 'loadTerms', force: true });
   assert.equal(offline.ok, false); assert.equal(offline.terms[0].id, 'risk'); assert.equal(offline.updatedAt, first.updatedAt);
   const cached = await app.send({ type: 'loadTerms' }); assert.equal(cached.syncError, 'Offline test'); assert.equal(app.downloads(), 2);
+});
+
+test('old cached literals refresh once and a 226-pattern master can save and scan', async () => {
+  const keywords = Array.from({ length: 226 }, (_, i) => ({ text: `\\bplace[\\s-]*${i}\\b`, match_mode: 'regex' }));
+  const app = setup({ schema_version: 1, keywords, profiles: [] });
+  app.stored.remoteRules = [Rules.normalizeRule({ text: keywords[0].text })];
+  app.stored.updatedAt = Date.now();
+  const loaded = await app.send({ type: 'loadTerms' });
+  assert.equal(loaded.ok, true);
+  assert.equal(loaded.terms.length, 226);
+  assert(loaded.terms.every(rule => rule.type === 'regex'));
+  assert.equal((await app.send({ type: 'saveConfig', config: loaded.config })).ok, true);
+  const scan = await app.send({ type: 'scan', texts: ['PLACE-225 place 0'] });
+  assert.equal(scan.results[0].length, 2);
+  await app.send({ type: 'loadTerms' });
+  assert.equal(app.downloads(), 1);
+  loaded.config.projects.default.rules = Array.from({ length: Matcher.MAX_REGEX_RULES + 1 }, (_, i) =>
+    ({ id: `local-${i}`, text: `custom${i}`, type: 'regex' }));
+  assert.match((await app.send({ type: 'saveConfig', config: loaded.config })).error, /at most 500/);
 });
 
 test('project settings and daily alarms persist; page records are isolated, deduplicated and optional', async () => {

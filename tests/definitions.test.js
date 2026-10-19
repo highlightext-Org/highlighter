@@ -26,6 +26,30 @@ test('central source supports patterns, grouped rules, legacy keywords, and disa
   assert.equal(errors.length, 1);
 });
 
+test('master keyword match_mode preserves regex variants and literal keyword behavior', async () => {
+  const pattern = '\\b(?:City[\\s\\-./]*of[\\s\\-./]*Burbank|Burbank)\\b';
+  const data = { schema_version: 1, profiles: [], keywords: [
+    { text: pattern, match_mode: 'regex', variants: [
+      { keyword: { text: pattern, match_mode: 'regex' }, origin: { source: 'places.txt', location: 'line:1' } },
+      { keyword: { text: pattern, match_mode: 'regex' }, origin: { source: 'places.txt', location: 'line:2' } }
+    ] },
+    { text: '\\B\\S+  END', match_mode: 'regex', variants: [{ keyword: {} }] },
+    { text: 'a+b', variants: [{ keyword: { text: 'a+b', type: 'positive' } }] },
+    { text: 'standalone\\d+', match_mode: 'regex' },
+    { text: '[', match_mode: 'regex' }
+  ] };
+  const { rules, errors } = R.extractRules(await R.readDefinitions(new Response(JSON.stringify(data))));
+  assert.equal(errors.length, 1);
+  assert.equal(rules.length, 4);
+  assert.equal(rules.find(rule => rule.text === pattern).type, 'regex');
+  assert.equal(rules.find(rule => rule.text === '\\B\\S+  END').type, 'regex');
+  assert.equal(rules.find(rule => rule.text === 'a+b').type, 'literal');
+  const text = 'CITY-of/Burbank a+b aaab standalone123';
+  const active = R.resolveRules(rules);
+  assert.deepEqual(createMatcher(active)(text).map(match => text.slice(match.start, match.end)),
+    ['CITY-of/Burbank', 'a+b', 'standalone123']);
+});
+
 test('priority, disable overrides, group filters, and semantic deduplication', () => {
   const remote = [rule('remote', 'risk'), rule('other', 'city', { group: 'Location' })];
   const local = [rule('local', 'risk', { color: '#123456' })];
