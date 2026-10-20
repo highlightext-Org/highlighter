@@ -3,8 +3,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 
-async function setup({ key = true, firefox = false, consent = true, page, timers } = {}) {
-  const nodes = {}, calls = [];
+async function setup({ key = true, firefox = false, consent = true, page, timers, permissionRequest } = {}) {
+  const nodes = {}, calls = [], logs = [];
   let response = async () => ({ corrected_text: 'My spelling is better.' }), inClick = false;
   const settings = { provider: 'openai', providers: { openai: { hasKey: key, model: 'gpt-4.1-mini' }, anthropic: { hasKey: false, model: 'claude-haiku-4-5' } } };
   const node = id => nodes[id] ||= {
@@ -13,6 +13,7 @@ async function setup({ key = true, firefox = false, consent = true, page, timers
     dispatchEvent(event) { this.handlers[event.type]?.(event); }, focus() {}
   };
   vm.runInNewContext(fs.readFileSync(require.resolve('../ai-ui'), 'utf8'), {
+    HextDiagnostics: { begin: () => 'test-correction', write: (stage, message, level) => logs.push({ stage, message, level }) },
     HextFocusedEditor: page, setTimeout: timers?.setTimeout || setTimeout, clearTimeout: timers?.clearTimeout || clearTimeout,
     Event: class { constructor(type) { this.type = type; } },
     document: { getElementById: node },
@@ -26,12 +27,12 @@ async function setup({ key = true, firefox = false, consent = true, page, timers
           return response();
         }
       },
-      permissions: { request: async () => { assert(inClick, 'Firefox consent must be requested within the click'); return consent; } }
+      permissions: { request: async () => { assert(inClick, 'Firefox consent must be requested within the click'); return permissionRequest ? permissionRequest() : consent; } }
     }
   });
   await new Promise(setImmediate);
   return {
-    node, calls,
+    node, calls, logs,
     respond: fn => { response = fn; },
     edit(text) { node('text').value = text; node('text').dispatchEvent({ type: 'input' }); },
     async click(id) { inClick = true; const pending = node(id).handlers.click(); inClick = false; await pending; }
@@ -150,4 +151,36 @@ test('an unanswered background request restores controls and ignores its late co
   app.respond(async () => undefined);
   await app.click('ai-correct');
   assert.match(app.node('ai-status').textContent, /returned no response/);
+});
+
+
+test('pending Firefox consent displays the exact blocker, times out, and never submits text after late approval', async () => {
+  const pending = new Map(); let serial = 0, allow;
+  const app = await setup({ firefox: true, permissionRequest: () => new Promise(resolve => { allow = resolve; }), timers: {
+    setTimeout(callback) { const id = ++serial; pending.set(id, callback); return id; },
+    clearTimeout(id) { pending.delete(id); }
+  } });
+  const request = app.click('ai-correct');
+  assert.match(app.node('ai-status').textContent, /Waiting for Firefox approval/);
+  assert(!app.calls.some(call => call.type === 'ai:correct'));
+  assert(app.logs.some(row => row.message.includes('Waiting for Firefox approval')));
+  for (const callback of [...pending.values()]) callback();
+  await request;
+  assert.equal(app.node('ai-correct').disabled, false);
+  assert.match(app.node('ai-status').textContent, /approval is still pending/);
+  allow(true);
+  await new Promise(setImmediate);
+  assert(!app.calls.some(call => call.type === 'ai:correct'));
+  assert(!JSON.stringify(app.logs).includes('my speling is beter.'));
+});
+
+test('correction logs source, response, and application steps without logging text', async () => {
+  const app = await setup();
+  await app.click('ai-correct');
+  assert(app.logs.some(row => row.stage === 'click'));
+  assert(app.logs.some(row => row.stage === 'text'));
+  assert(app.logs.some(row => row.stage === 'response'));
+  assert(app.logs.some(row => row.message.includes('Applying correction')));
+  assert(!JSON.stringify(app.logs).includes('My spelling is better.'));
+  assert.equal(app.calls.find(call => call.type === 'ai:correct').requestId, 'test-correction');
 });

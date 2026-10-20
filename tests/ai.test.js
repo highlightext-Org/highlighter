@@ -4,9 +4,10 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 
 function setup({ firefox = false, consent = true, timers } = {}) {
-  const stored = {}, calls = [];
+  const stored = {}, calls = [], logs = [];
   let respond = async () => ({ ok: true, json: async () => ({ status: 'completed', output: [{ type: 'message', content: [{ type: 'output_text', text: '{"corrected_text":"My spelling is better."}' }] }] }) });
   const context = vm.createContext({
+    HextDiagnostics: { write: (stage, message, level, requestId) => logs.push({ stage, message, level, requestId }) },
     AbortSignal, AbortController, setTimeout: timers?.setTimeout || setTimeout, clearTimeout: timers?.clearTimeout || clearTimeout,
     chrome: {
       runtime: { getManifest: () => firefox ? { browser_specific_settings: { gecko: { data_collection_permissions: { optional: ['authenticationInfo', 'personalCommunications'] } } } } : {} },
@@ -19,7 +20,7 @@ function setup({ firefox = false, consent = true, timers } = {}) {
     fetch: async (url, options) => { calls.push({ url, ...options, body: JSON.parse(options.body) }); return respond(); }
   });
   vm.runInContext(fs.readFileSync(require.resolve('../ai'), 'utf8'), context);
-  return { stored, calls, send: message => context.HighlightextAI.handle(message), respond: fn => { respond = fn; } };
+  return { stored, calls, logs, send: message => context.HighlightextAI.handle(message), respond: fn => { respond = fn; } };
 }
 const save = (app, provider = 'openai', extra = {}) => app.send({ type: 'ai:save', provider, apiKey: `test-${provider}-key`, ...extra });
 const correct = app => app.send({ type: 'ai:correct', text: 'my speling is beter.' });
@@ -145,4 +146,15 @@ test('stalled provider fetches and response bodies time out, abort, and release 
     await assert.rejects(correct(app), /model was not found or your API project cannot access it/);
     assert.equal(pending.size, 0);
   }
+});
+
+
+test('background logs API progress for the requesting panel without keys or correction text', async () => {
+  const app = setup(); await save(app);
+  await app.send({ type: 'ai:correct', text: 'private draft', requestId: 'run-1' });
+  assert(app.logs.some(row => row.message.includes('HTTP 200')));
+  assert(app.logs.some(row => row.stage === 'response'));
+  assert(app.logs.every(row => row.requestId === 'run-1'));
+  const log = JSON.stringify(app.logs);
+  for (const value of ['private draft', 'test-openai-key', 'My spelling is better.']) assert(!log.includes(value));
 });

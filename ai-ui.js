@@ -2,6 +2,17 @@
   'use strict';
   const el = id => document.getElementById(id);
   const editor = el('text');
+  const log = (stage, message, level = 'info') => globalThis.HextDiagnostics?.write(stage, message, level);
+  function failureCode(message) {
+    const http = /HTTP (\d{3})/.exec(message);
+    if (http) return `Provider request failed (HTTP ${http[1]}). Check API settings, model access, and billing.`;
+    if (/data access|consent|approval/.test(message)) return 'AI data permission was denied or is still awaiting approval.';
+    if (/timed out|respond in time|did not respond/.test(message)) return 'Operation timed out. No confirmed correction was applied.';
+    if (/API key/.test(message)) return 'An API key is missing or invalid.';
+    if (/page|text box|editor/.test(message)) return 'The page text box is unavailable or changed.';
+    if (/reach|connection/.test(message)) return 'Could not connect to the AI provider.';
+    return 'Operation failed. See the error shown beneath Correct text.';
+  }
   let settings, revision = 0, undo = null, loading = true;
   async function waitFor(pending, milliseconds, message) {
     let timer;
@@ -21,6 +32,7 @@
   function status(text, error = false) {
     el('ai-status').textContent = text;
     el('ai-status').dataset.error = String(error);
+    log(error ? 'error' : 'status', error ? failureCode(text) : text, error ? 'error' : 'info');
   }
   function drawProvider() {
     const account = settings.providers[el('ai-provider').value];
@@ -52,27 +64,39 @@
   el('ai-save').addEventListener('click', () => save(false));
   el('ai-remove').addEventListener('click', () => save(true));
   el('ai-correct').addEventListener('click', async () => {
-    if (loading) return;
+    if (loading) { status('AI settings are still loading. Please try again shortly.'); return; }
+    const requestId = globalThis.HextDiagnostics?.begin();
+    log('click', 'Correct text clicked. Checking settings and text source.');
     const page = globalThis.HextFocusedEditor;
     const usePage = page?.enabled();
     if (!usePage && (!editor.value.trim() || editor.value.length > 20000)) { status('Enter between 1 and 20,000 characters to correct.', true); return; }
     if (!settings.providers[settings.provider].hasKey) { el('ai-settings').open = true; status('Add an API key and save AI settings first.', true); return; }
     el('ai-correct').disabled = true; el('ai-save').disabled = true; el('ai-remove').disabled = true;
-    status('Correcting spelling and grammar…');
+    status('Preparing text correction…');
     try {
       // Keep Firefox's optional-data prompt inside the user's click gesture.
       const dataTypes = chrome.runtime.getManifest().browser_specific_settings?.gecko?.data_collection_permissions?.optional;
       const consent = dataTypes && chrome.permissions.request({ data_collection: dataTypes });
-      if (consent && !await consent) throw new Error('AI data access was not granted. Your text was not sent.');
+      if (consent) {
+        status('Waiting for Firefox approval. Choose Allow or Deny in the browser’s data collection prompt.');
+        const granted = await waitFor(consent, 60000, 'Firefox data approval is still pending. Choose Allow or Deny in the browser prompt, then retry. Your text was not sent.');
+        if (!granted) throw new Error('AI data access was not granted. Your text was not sent.');
+        log('permissions', 'Firefox AI data access granted.');
+      }
+      status(usePage ? 'Reading the focused page text box…' : 'Reading the side-panel draft…');
       const source = usePage ? await waitFor(page.read(), 5000, 'The page text box did not respond. Reload the page and try again.') : null;
       if (usePage && (!page.enabled() || !source)) throw new Error('Click the text box on the page first.');
       if (source?.tooLong) throw new Error('The page text exceeds the 20,000 character limit.');
       const original = source ? source.text : editor.value, startedAt = revision;
       if (!original.trim() || original.length > 20000) throw new Error('Enter between 1 and 20,000 characters to correct.');
-      const result = await request({ type: 'ai:correct', text: original });
+      log('text', `Read ${original.length} characters from ${usePage ? 'the page text box' : 'the side-panel draft'}.`);
+      status('Sending text for spelling and grammar correction…');
+      const result = await request({ type: 'ai:correct', text: original, requestId });
+      log('response', 'Correction returned to the panel. Checking whether the text changed.');
       if (revision !== startedAt) { status('You edited the text while correction was running. Your edits were kept.'); return; }
       if (typeof result.corrected_text !== 'string' || !result.corrected_text.trim() || result.corrected_text.length > 40000) throw new Error('The correction was invalid. Your text was not changed.');
       if (result.corrected_text === original) { status('No corrections needed.'); return; }
+      status(source ? 'Applying correction to the page text box…' : 'Applying correction to the side-panel draft…');
       const correctedSource = source ? await waitFor(page.replace(source, result.corrected_text), 5000, 'The page did not confirm the correction. Check its text before trying again.') : null;
       if (!source) replace(result.corrected_text);
       undo = { original, corrected: result.corrected_text, source: correctedSource };
@@ -96,6 +120,7 @@
     finally { el('ai-undo').disabled = false; }
   });
   for (const id of ['ai-correct', 'ai-save', 'ai-remove', 'ai-provider']) el(id).disabled = true;
+  log('startup', 'Loading saved AI settings.');
   request({ type: 'ai:settings' }).then(value => {
     settings = value; el('ai-provider').value = settings.provider; drawProvider();
     loading = false;

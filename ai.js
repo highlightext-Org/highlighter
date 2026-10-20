@@ -54,7 +54,7 @@
     }
     return { corrected_text: result.corrected_text };
   }
-  async function correct(text) {
+  async function correct(text, requestId) {
     if (typeof text !== 'string' || !text.trim() || text.length > 20000) throw new Error('Enter between 1 and 20,000 characters to correct.');
     if (busy) throw new Error('A correction is already running. Please wait.');
     busy = true;
@@ -62,7 +62,7 @@
     let timer;
     try {
       return await Promise.race([
-        runCorrection(text, controller.signal),
+        runCorrection(text, controller.signal, requestId),
         new Promise((_, reject) => {
           timer = setTimeout(() => {
             reject(new Error('Correction timed out. Your text was not changed. Check your connection and try again.'));
@@ -72,13 +72,17 @@
       ]);
     } finally { clearTimeout(timer); busy = false; }
   }
-  async function runCorrection(text, signal) {
+  async function runCorrection(text, signal, requestId) {
+      const log = (stage, message) => globalThis.HextDiagnostics?.write(stage, message, 'info', requestId);
+      log('settings', 'Background received correction. Reading saved AI settings.');
       const settings = await read(), spec = provider(settings.provider || 'openai');
       const account = settings[settings.provider || 'openai'];
+      log('settings', `${spec.name} selected; saved API key ${account?.apiKey ? 'present' : 'missing'}.`);
       if (!account?.apiKey) throw new Error(`Add your ${spec.name} API key in AI settings first.`);
       // Firefox requires optional data consent; Chrome has no data_collection API.
       const dataTypes = chrome.runtime.getManifest().browser_specific_settings?.gecko?.data_collection_permissions?.optional;
       if (dataTypes && !await chrome.permissions.contains({ data_collection: dataTypes })) throw new Error('Allow AI data access using Correct text before sending a correction.');
+      log('permissions', 'AI data permission check passed.');
       const openai = settings.provider !== 'anthropic';
       const body = openai ? {
         model: account.model || spec.model, store: false, instructions,
@@ -91,6 +95,7 @@
       };
       let response;
       signal.throwIfAborted();
+      log('api', `Sending correction to ${spec.name}; model ${account.model || spec.model}.`);
       try {
         response = await fetch(spec.url, {
           method: 'POST', credentials: 'omit', redirect: 'error', signal,
@@ -102,13 +107,16 @@
       } catch (error) {
         throw new Error(error.name === 'TimeoutError' || error.name === 'AbortError' ? 'Correction timed out. Your text was not changed.' : 'Could not reach the AI provider. Check your connection and website access.');
       }
+      log('api', `Provider responded: HTTP ${response.status || 200}.`);
       // Never echo provider error bodies: they may contain submitted text or credentials.
       if (!response.ok) {
         const detail = [401, 403].includes(response.status) ? 'Check your API key and account access.' : response.status === 429 ? 'Rate or billing limit reached. Check your provider account.' : response.status === 404 ? 'This model was not found or your API project cannot access it. Check the saved model ID and project permissions.' : response.status === 400 ? 'This model rejected the correction request. Check that it supports Responses and structured JSON output.' : 'Please try again later.';
         throw new Error(`${spec.name} request failed (HTTP ${response.status}). ${detail}`);
       }
+      log('response', 'Reading provider response.');
       let data;
       try { data = await response.json(); } catch { throw new Error('The provider returned an unreadable response. Your text was not changed.'); }
+      log('response', 'Response received. Validating correction.');
       if (openai) {
         if (!Array.isArray(data?.output)) throw new Error('The provider returned an unexpected response. Your text was not changed.');
         const content = data.output.filter(item => item?.type === 'message').flatMap(item => Array.isArray(item.content) ? item.content : []);
@@ -128,7 +136,7 @@
   globalThis.HighlightextAI = { handle: async message => {
     if (message.type === 'ai:settings') return read().then(publicSettings);
     if (message.type === 'ai:save') return save(message);
-    if (message.type === 'ai:correct') return correct(message.text);
+    if (message.type === 'ai:correct') return correct(message.text, message.requestId);
     throw new Error('Unknown AI request.');
   } };
 })();

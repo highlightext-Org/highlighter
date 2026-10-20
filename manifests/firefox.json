@@ -1,6 +1,7 @@
 {
   "background": {
     "scripts": [
+      "diagnostics.js",
       "ai.js",
       "definitions.js",
       "matcher.js",

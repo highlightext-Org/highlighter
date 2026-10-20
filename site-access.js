@@ -11,10 +11,12 @@
     status.textContent = granted ? 'Website access is enabled.' : 'Website access is needed. Click Allow website access and accept the browser prompt.';
   }
   button.addEventListener('click', async () => {
+    globalThis.HextDiagnostics?.write('permissions', 'Requesting website access from the browser.');
     button.disabled = true;
     try {
       // Request directly from the click: Firefox requires a user gesture, including for temporary add-ons.
       const granted = await chrome.permissions.request({ origins });
+      globalThis.HextDiagnostics?.write('permissions', granted ? 'Website access granted.' : 'Website access denied.', granted ? 'info' : 'error');
       button.hidden = granted;
       status.textContent = granted
         ? 'Website access enabled. Reload open web pages. Requeue any blocked accounts before starting again.'

@@ -1,5 +1,5 @@
 // Firefox preloads these scripts in its event page; Chrome uses a service worker.
-if (typeof importScripts === 'function') importScripts('ai.js', 'definitions.js', 'matcher.js', 'timeline.js', 'follows.js', 'chrome-host.js');
+if (typeof importScripts === 'function') importScripts('diagnostics.js', 'ai.js', 'definitions.js', 'matcher.js', 'timeline.js', 'follows.js', 'chrome-host.js');
 // Toolbar clicks open the persistent controls directly in each browser.
 if (chrome.sidePanel?.setPanelBehavior) {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true })
@@ -139,7 +139,7 @@ async function handle(message, sender) {
   }
 }
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
-  if (message.target === 'match-host') return;
+  if (message.target === 'match-host' || message.target === 'hext-diagnostics') return;
   // Injected scripts can scan a page; configuration and exports belong to extension UI.
   if (sender.tab && !sender.url?.startsWith(chrome.runtime.getURL('')) && !['scan', 'hext:settings', 'timeline:capture', 'timeline:status', 'handles:capture', 'handles:status'].includes(message.type)) { respond({ error: 'Open the extension to manage rules.' }); return; }
   if (message.type?.startsWith('ai:')) {

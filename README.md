@@ -34,6 +34,21 @@ Zip each build directory's contents with `manifest.json` at the archive root for
 store submission. Build outputs contain extension assets and license files only;
 building does not sign or publish anything.
 
+## Steps and logs
+
+Open **Steps & logs** at the bottom of the panel to see startup, tool operations,
+focused-editor detection, and each AI correction stage. It includes permission
+checks, API request and HTTP status, response validation, and text replacement.
+Use **Copy logs** to share diagnostics or **Clear logs** to reset the panel.
+The latest 200 entries are kept in panel memory and disappear when it closes.
+Logs exclude API keys, page text, and provider response bodies.
+
+On Firefox, **Correct text** may show an additional data collection prompt in
+the browser chrome. Choose **Allow** to enable AI correction or **Deny** to
+cancel. While that prompt is pending, no text has been sent to the provider.
+The panel explicitly reports this step and restores the controls if approval
+is still pending after one minute.
+
 ## AI spelling and grammar correction
 
 In the popup or sidebar, open **AI settings · API key & provider** below the

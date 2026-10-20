@@ -44,5 +44,13 @@
   <p id="page-status" role="status"></p>
   <p class="software-notice">Community · Free open-source tools. Provided as is, without warranty. <a href="https://github.com/highlightext-Org/highlighter/blob/main/DISCLAIMER.md" target="_blank" rel="noopener">License &amp; liability notice ↗</a></p>
   <footer>Text stays local unless you use AI correction. <a href="https://highlightext-org.github.io/words/master.json" target="_blank" rel="noopener">View word list ↗</a></footer>
+  <details id="diagnostics" class="diagnostics">
+    <summary>Steps &amp; logs <span id="diagnostic-count">0 entries</span></summary>
+    <p class="timeline-hint">Live steps for this panel. API keys and your text are excluded. Up to 200 entries; cleared when the panel closes.</p>
+    <pre id="diagnostic-output" role="log" aria-label="Extension activity log" tabindex="0"></pre>
+    <div class="timeline-actions"><button id="diagnostic-copy">Copy logs</button><button id="diagnostic-clear">Clear logs</button></div>
+    <p id="diagnostic-action-status" class="timeline-hint" role="status"></p>
+  </details>
+  <script src="diagnostics.js"></script>
   <script src="site-access.js"></script><script src="timeline.js"></script><script src="sidebar.js"></script><script src="popup.js"></script><script src="focused-editor-ui.js"></script><script src="ai-ui.js"></script>
 </body></html>

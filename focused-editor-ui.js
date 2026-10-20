@@ -25,7 +25,9 @@
   }
   function show(source, error) {
     preview(source?.text || '');
+    const previousHint = hint.textContent;
     hint.textContent = error || (source?.tooLong ? 'The page text exceeds the 20,000 character limit.' : source ? 'Using the page text box. Corrections will be applied there.' : 'Click a text box on the page to use its text automatically.');
+    if (hint.textContent !== previousHint) globalThis.HextDiagnostics?.write('editor', error ? 'Could not read the focused page text box. Check website access and reload the page.' : source ? 'Focused page text box detected.' : 'Waiting for a focused page text box.', error ? 'error' : 'info');
   }
   const api = globalThis.HextFocusedEditor = {
     enabled: () => toggle.checked,

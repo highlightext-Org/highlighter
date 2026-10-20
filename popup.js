@@ -4,7 +4,19 @@ const inSidebar = new URLSearchParams(location.search).has('sidebar');
 if (inSidebar) { document.body.classList.add('sidebar'); $('open-sidebar').hidden = true; }
 let state, renderTimer, saveTimer, renderGeneration = 0;
 const options = { keyword: true, handle: true, wallet: true, url: true, wholeWords: true, caseSensitive: false };
-async function request(message) { const result = await chrome.runtime.sendMessage(message); if (result.error && result.ok !== false) throw new Error(result.error); return result; }
+async function request(message) {
+  const tracked = ['getState', 'loadTerms', 'saveConfig', 'timeline:status', 'timeline:start', 'timeline:stop', 'timeline:clear'].includes(message.type);
+  if (tracked) globalThis.HextDiagnostics?.write('tools', `${message.type}: started.`);
+  try {
+    const result = await chrome.runtime.sendMessage(message);
+    if (result.error && result.ok !== false) throw new Error(result.error);
+    if (tracked) globalThis.HextDiagnostics?.write('tools', `${message.type}: finished${result.error ? ' with a reported error' : ''}.`, result.error ? 'error' : 'info');
+    return result;
+  } catch (error) {
+    if (tracked) globalThis.HextDiagnostics?.write('tools', `${message.type}: failed. See the tool status for details.`, 'error');
+    throw error;
+  }
+}
 function project() { return state.config.projects[state.config.activeProject]; }
 function syncScroll() { $('highlights').style.width = `${$('text').clientWidth}px`; $('highlights').scrollTop = $('text').scrollTop; $('highlights').scrollLeft = $('text').scrollLeft; }
 async function render() {
