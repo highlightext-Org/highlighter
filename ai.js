@@ -58,7 +58,21 @@
     if (typeof text !== 'string' || !text.trim() || text.length > 20000) throw new Error('Enter between 1 and 20,000 characters to correct.');
     if (busy) throw new Error('A correction is already running. Please wait.');
     busy = true;
+    const controller = new AbortController();
+    let timer;
     try {
+      return await Promise.race([
+        runCorrection(text, controller.signal),
+        new Promise((_, reject) => {
+          timer = setTimeout(() => {
+            reject(new Error('Correction timed out. Your text was not changed. Check your connection and try again.'));
+            controller.abort();
+          }, 25000);
+        })
+      ]);
+    } finally { clearTimeout(timer); busy = false; }
+  }
+  async function runCorrection(text, signal) {
       const settings = await read(), spec = provider(settings.provider || 'openai');
       const account = settings[settings.provider || 'openai'];
       if (!account?.apiKey) throw new Error(`Add your ${spec.name} API key in AI settings first.`);
@@ -76,9 +90,10 @@
         output_config: { format: { type: 'json_schema', schema } }
       };
       let response;
+      signal.throwIfAborted();
       try {
         response = await fetch(spec.url, {
-          method: 'POST', credentials: 'omit', redirect: 'error', signal: AbortSignal.timeout(25000),
+          method: 'POST', credentials: 'omit', redirect: 'error', signal,
           headers: openai ? { 'Content-Type': 'application/json', Authorization: `Bearer ${account.apiKey}` } : {
             'Content-Type': 'application/json', 'x-api-key': account.apiKey,
             'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true'
@@ -89,7 +104,7 @@
       }
       // Never echo provider error bodies: they may contain submitted text or credentials.
       if (!response.ok) {
-        const detail = [401, 403].includes(response.status) ? 'Check your API key and account access.' : response.status === 429 ? 'Rate or billing limit reached. Check your provider account.' : response.status === 400 || response.status === 404 ? 'Check that your model ID supports structured JSON output.' : 'Please try again later.';
+        const detail = [401, 403].includes(response.status) ? 'Check your API key and account access.' : response.status === 429 ? 'Rate or billing limit reached. Check your provider account.' : response.status === 404 ? 'This model was not found or your API project cannot access it. Check the saved model ID and project permissions.' : response.status === 400 ? 'This model rejected the correction request. Check that it supports Responses and structured JSON output.' : 'Please try again later.';
         throw new Error(`${spec.name} request failed (HTTP ${response.status}). ${detail}`);
       }
       let data;
@@ -109,7 +124,6 @@
       const chunks = data.content.filter(item => item?.type === 'text');
       if (chunks.length !== 1 || typeof chunks[0].text !== 'string') throw new Error('The provider returned no correction. Your text was not changed.');
       return parse(chunks[0].text);
-    } finally { busy = false; }
   }
   globalThis.HighlightextAI = { handle: async message => {
     if (message.type === 'ai:settings') return read().then(publicSettings);

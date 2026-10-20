@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 
-async function setup({ key = true, firefox = false, consent = true, page } = {}) {
+async function setup({ key = true, firefox = false, consent = true, page, timers } = {}) {
   const nodes = {}, calls = [];
   let response = async () => ({ corrected_text: 'My spelling is better.' }), inClick = false;
   const settings = { provider: 'openai', providers: { openai: { hasKey: key, model: 'gpt-4.1-mini' }, anthropic: { hasKey: false, model: 'claude-haiku-4-5' } } };
@@ -13,7 +13,7 @@ async function setup({ key = true, firefox = false, consent = true, page } = {})
     dispatchEvent(event) { this.handlers[event.type]?.(event); }, focus() {}
   };
   vm.runInNewContext(fs.readFileSync(require.resolve('../ai-ui'), 'utf8'), {
-    HextFocusedEditor: page,
+    HextFocusedEditor: page, setTimeout: timers?.setTimeout || setTimeout, clearTimeout: timers?.clearTimeout || clearTimeout,
     Event: class { constructor(type) { this.type = type; } },
     document: { getElementById: node },
     chrome: {
@@ -126,4 +126,28 @@ test('a page replacement conflict keeps the page unchanged and reports the confl
   await app.click('ai-correct');
   assert.match(app.node('ai-status').textContent, /latest text was kept/);
   assert.equal(app.node('ai-undo').hidden, true);
+});
+
+
+test('an unanswered background request restores controls and ignores its late correction', async () => {
+  const pending = new Map(); let serial = 0, release;
+  const app = await setup({ timers: {
+    setTimeout(callback) { const id = ++serial; pending.set(id, callback); return id; },
+    clearTimeout(id) { pending.delete(id); }
+  } });
+  app.respond(() => new Promise(resolve => { release = resolve; }));
+  const request = app.click('ai-correct');
+  for (const callback of [...pending.values()]) callback();
+  await request;
+  assert.equal(app.node('ai-correct').disabled, false);
+  assert.equal(app.node('ai-save').disabled, false);
+  assert.match(app.node('ai-status').textContent, /did not respond in time/);
+  assert.equal(app.node('text').value, 'my speling is beter.');
+  release({ corrected_text: 'Late correction' });
+  await new Promise(setImmediate);
+  assert.equal(app.node('text').value, 'my speling is beter.');
+  assert.equal(pending.size, 0);
+  app.respond(async () => undefined);
+  await app.click('ai-correct');
+  assert.match(app.node('ai-status').textContent, /returned no response/);
 });

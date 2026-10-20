@@ -3,8 +3,18 @@
   const el = id => document.getElementById(id);
   const editor = el('text');
   let settings, revision = 0, undo = null, loading = true;
+  async function waitFor(pending, milliseconds, message) {
+    let timer;
+    try {
+      return await Promise.race([pending, new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(message)), milliseconds);
+      })]);
+    } finally { clearTimeout(timer); }
+  }
   async function request(message) {
-    const result = await chrome.runtime.sendMessage(message);
+    const result = await waitFor(chrome.runtime.sendMessage(message), message.type === 'ai:correct' ? 30000 : 10000,
+      'The extension did not respond in time. Your text was not changed. Reload the extension and try again.');
+    if (!result) throw new Error('The extension returned no response. Reload the extension and try again.');
     if (result.error) throw new Error(result.error);
     return result;
   }
@@ -54,7 +64,7 @@
       const dataTypes = chrome.runtime.getManifest().browser_specific_settings?.gecko?.data_collection_permissions?.optional;
       const consent = dataTypes && chrome.permissions.request({ data_collection: dataTypes });
       if (consent && !await consent) throw new Error('AI data access was not granted. Your text was not sent.');
-      const source = usePage ? await page.read() : null;
+      const source = usePage ? await waitFor(page.read(), 5000, 'The page text box did not respond. Reload the page and try again.') : null;
       if (usePage && (!page.enabled() || !source)) throw new Error('Click the text box on the page first.');
       if (source?.tooLong) throw new Error('The page text exceeds the 20,000 character limit.');
       const original = source ? source.text : editor.value, startedAt = revision;
@@ -63,7 +73,7 @@
       if (revision !== startedAt) { status('You edited the text while correction was running. Your edits were kept.'); return; }
       if (typeof result.corrected_text !== 'string' || !result.corrected_text.trim() || result.corrected_text.length > 40000) throw new Error('The correction was invalid. Your text was not changed.');
       if (result.corrected_text === original) { status('No corrections needed.'); return; }
-      const correctedSource = source ? await page.replace(source, result.corrected_text) : null;
+      const correctedSource = source ? await waitFor(page.replace(source, result.corrected_text), 5000, 'The page did not confirm the correction. Check its text before trying again.') : null;
       if (!source) replace(result.corrected_text);
       undo = { original, corrected: result.corrected_text, source: correctedSource };
       el('ai-undo').hidden = false;

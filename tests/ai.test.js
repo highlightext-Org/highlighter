@@ -3,11 +3,11 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 
-function setup({ firefox = false, consent = true } = {}) {
+function setup({ firefox = false, consent = true, timers } = {}) {
   const stored = {}, calls = [];
   let respond = async () => ({ ok: true, json: async () => ({ status: 'completed', output: [{ type: 'message', content: [{ type: 'output_text', text: '{"corrected_text":"My spelling is better."}' }] }] }) });
   const context = vm.createContext({
-    AbortSignal,
+    AbortSignal, AbortController, setTimeout: timers?.setTimeout || setTimeout, clearTimeout: timers?.clearTimeout || clearTimeout,
     chrome: {
       runtime: { getManifest: () => firefox ? { browser_specific_settings: { gecko: { data_collection_permissions: { optional: ['authenticationInfo', 'personalCommunications'] } } } } : {} },
       permissions: { contains: async () => consent },
@@ -122,4 +122,27 @@ test('empty input, missing keys, denied Firefox consent and concurrent requests 
   const denied = setup({ firefox: true, consent: false }); await save(denied);
   await assert.rejects(correct(denied), /data access/);
   assert.equal(denied.calls.length, 0);
+});
+
+
+test('stalled provider fetches and response bodies time out, abort, and release the correction lock', async () => {
+  const pending = new Map(); let serial = 0;
+  const app = setup({ timers: {
+    setTimeout(callback) { const id = ++serial; pending.set(id, callback); return id; },
+    clearTimeout(id) { pending.delete(id); }
+  } });
+  await save(app);
+  for (const phase of ['fetch', 'body']) {
+    app.respond(() => phase === 'fetch' ? new Promise(() => {}) : Promise.resolve({ ok: true, json: () => new Promise(() => {}) }));
+    const request = correct(app);
+    await new Promise(setImmediate);
+    const signal = app.calls.at(-1).signal;
+    for (const callback of [...pending.values()]) callback();
+    await assert.rejects(request, /timed out/);
+    assert.equal(signal.aborted, true);
+    assert.equal(pending.size, 0);
+    app.respond(async () => ({ ok: false, status: 404 }));
+    await assert.rejects(correct(app), /model was not found or your API project cannot access it/);
+    assert.equal(pending.size, 0);
+  }
 });
