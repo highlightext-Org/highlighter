@@ -2,13 +2,17 @@
 // Never pass API keys, page text, request bodies, or provider response bodies.
 (() => {
   'use strict';
-  const inUI = typeof document !== 'undefined';
+  // Firefox background event pages also have a document, but no panel controls.
+  const output = typeof document !== 'undefined' ? document.getElementById('diagnostic-output') : null;
+  const inUI = Boolean(output);
   let entries = [], activeRequest;
   const listeners = new Set();
   function append(entry) {
     entries.push(entry);
     entries = entries.slice(-200);
-    for (const listener of listeners) listener(entries);
+    for (const listener of listeners) {
+      try { listener(entries); } catch { /* Diagnostics must never block extension operations. */ }
+    }
   }
   const api = globalThis.HextDiagnostics = {
     begin() { activeRequest = crypto.randomUUID(); return activeRequest; },
@@ -29,7 +33,6 @@
     const entry = message.entry;
     if (entry && ['info', 'error'].includes(entry.level) && typeof entry.message === 'string' && typeof entry.stage === 'string') append(entry);
   });
-  const output = document.getElementById('diagnostic-output');
   api.subscribe(rows => {
     output.textContent = rows.map(row => `${row.time.slice(11, 23)} ${row.level.toUpperCase()} [${row.stage}] ${row.message}`).join('\n');
     document.getElementById('diagnostic-count').textContent = `${rows.length} entries`;

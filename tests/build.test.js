@@ -58,6 +58,8 @@ test('both packages boot and load terms in their browser background environments
         context.importScripts = (...files) => files.forEach(file => vm.runInContext(sources[file], context));
         vm.runInContext(sources[manifest.background.service_worker], context);
       } else {
+        // Firefox event pages have a document, unlike Chrome service workers.
+        context.document = { getElementById: () => null };
         context.browser = {
           action: { onClicked: { addListener: callback => { toolbarClick = callback; } } },
           sidebarAction: { open: () => { sidebarOpened = true; return Promise.resolve(); } }
