@@ -1,5 +1,15 @@
 // Firefox preloads these scripts in its event page; Chrome uses a service worker.
 if (typeof importScripts === 'function') importScripts('ai.js', 'definitions.js', 'matcher.js', 'timeline.js', 'follows.js', 'chrome-host.js');
+// Toolbar clicks open the persistent controls directly in each browser.
+if (chrome.sidePanel?.setPanelBehavior) {
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true })
+    .catch(error => console.error('Could not configure the side panel:', error));
+} else if (typeof browser !== 'undefined' && browser.sidebarAction) {
+  browser.action.onClicked.addListener(() => {
+    // Keep this call synchronous with the click to preserve Firefox's user gesture.
+    browser.sidebarAction.open().catch(error => console.error('Could not open the sidebar:', error));
+  });
+}
 const SOURCE = 'https://highlightext-org.github.io/words/master.json';
 // Bump when parsing changes so previously normalized caches are downloaded again.
 const DEFINITIONS_VERSION = 3;

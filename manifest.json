@@ -72,8 +72,7 @@
     "service_worker": "background.js"
   },
   "action": {
-    "default_title": "Highlightext",
-    "default_popup": "popup.html"
+    "default_title": "Highlightext"
   },
   "options_ui": {
     "page": "options.html",

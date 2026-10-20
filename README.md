@@ -206,7 +206,8 @@ as they appear in the viewport, without scrolling for you, downloading video
 files, or fetching hidden content. Site layout changes may require adapter
 updates; captions, authors, and timestamps depend on the rendered page.
 
-Click **Keep open in sidebar** to open the same controls beside the current tab.
+Click the **Highlightext toolbar icon** to open the controls directly in the side
+panel (Chrome/Edge) or sidebar (Firefox). The toolbar opens the sidebar by default.
 Chrome/Edge also list Highlightext in their side panel selector; Firefox lists it
 in the sidebar selector. You can keep that panel open as you navigate.
 

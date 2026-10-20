@@ -21,6 +21,7 @@ test('both packages boot and load terms in their browser background environments
       assert(!files.includes('scripts'));
       const manifest = JSON.parse(await readFile(path.join(destination, 'manifest.json'), 'utf8'));
       assert.equal(manifest.manifest_version, 3);
+      assert.equal(manifest.action.default_popup, undefined);
       assert.deepEqual(manifest.permissions, browser === 'chrome' ? ['storage', 'activeTab', 'scripting', 'alarms', 'offscreen', 'sidePanel'] : ['storage', 'activeTab', 'scripting', 'alarms']);
       assert.deepEqual(manifest.content_scripts[1].js, ['timeline.js', 'timeline-content.js']);
       assert(files.includes('timeline.js') && files.includes('timeline-content.js'));
@@ -42,7 +43,7 @@ test('both packages boot and load terms in their browser background environments
       }
 
       const sources = Object.fromEntries(await Promise.all(files.filter(file => file.endsWith('.js')).map(async file => [file, await readFile(path.join(destination, file), 'utf8')])));
-      let listener;
+      let listener, panelBehavior, toolbarClick, sidebarOpened = false;
       const stored = {};
       const context = vm.createContext({
         AbortSignal, TextDecoder,
@@ -53,10 +54,22 @@ test('both packages boot and load terms in their browser background environments
         }
       });
       if (browser === 'chrome') {
+        context.chrome.sidePanel = { setPanelBehavior: async options => { panelBehavior = options; } };
         context.importScripts = (...files) => files.forEach(file => vm.runInContext(sources[file], context));
         vm.runInContext(sources[manifest.background.service_worker], context);
       } else {
+        context.browser = {
+          action: { onClicked: { addListener: callback => { toolbarClick = callback; } } },
+          sidebarAction: { open: () => { sidebarOpened = true; return Promise.resolve(); } }
+        };
         for (const file of manifest.background.scripts) vm.runInContext(sources[file], context);
+      }
+      if (browser === 'chrome') {
+        assert.equal(panelBehavior.openPanelOnActionClick, true);
+      } else {
+        assert.equal(typeof toolbarClick, 'function');
+        toolbarClick();
+        assert.equal(sidebarOpened, true, 'sidebar must open directly during the toolbar click');
       }
       assert.equal(typeof listener, 'function');
       const response = await new Promise(resolve => {
